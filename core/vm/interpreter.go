@@ -238,5 +238,15 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		err = nil // clear stop token error
 	}
 
+	if !readOnly && err == nil && fhevmExecutor != nil {
+		if input != nil && res != nil && contract.Address() == fhevmContractAddress {
+			log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
+			coprocErr := fhevmExecutor.Execute(input, res)
+			if coprocErr != nil {
+				log.Error("Error executing coprocessor payload", "error", coprocErr)
+			}
+		}
+	}
+
 	return res, err
 }

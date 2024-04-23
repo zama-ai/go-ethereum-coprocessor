@@ -17,7 +17,10 @@
 package vm
 
 import (
+	"context"
+	"fmt"
 	"math/big"
+	"os"
 	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/zama-ai/fhevm-go-coproc/fhevm"
 )
 
 type (
@@ -121,6 +125,30 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
+}
+
+var fhevmExecutor fhevm.Executor
+var fhevmContractAddress common.Address
+
+// hacky, and this is for demo, but we need a lot of refactorings
+// of NewEVM method otherwise
+func init() {
+	if sqliteDbPath, ok := os.LookupEnv("FHEVM_CIPHERTEXTS_DB"); ok {
+		contractAddr, hasAddr := os.LookupEnv("FHEVM_CONTRACT_ADDRESS")
+		if !hasAddr {
+			panic("FHEVM_CIPHERTEXTS_DB is set but FHEVM_CONTRACT_ADDRESS is not set")
+		}
+		fhevmContractAddress = common.HexToAddress(contractAddr)
+
+		ciphertextDb, err := fhevm.CreateSqliteCiphertextStore(sqliteDbPath, context.Background())
+		if err != nil {
+			panic(fmt.Sprintf("cannot open %s db: %s", sqliteDbPath, err))
+		}
+
+		fhevmExecutor = fhevm.CreateExecutorApi(ciphertextDb)
+	} else {
+		fhevmExecutor = nil
+	}
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
