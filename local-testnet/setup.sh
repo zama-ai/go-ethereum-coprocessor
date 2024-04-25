@@ -5,6 +5,18 @@ make geth
 go build ./cmd/bootnode
 popd
 
+if ! which fhevm-tfhe-cli
+then
+	echo fhevm-tfhe-cli is not installed
+	exit 1
+fi
+
+if [ ! -d ./fhevm-keys ]
+then
+	mkdir fhevm-keys
+	fhevm-tfhe-cli generate-keys -d fhevm-keys
+fi
+
 # build with 'make geth' in root directory
 GETH=../build/bin/geth
 # build with 'go build ./cmd/bootnode' in root directory
