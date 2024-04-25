@@ -2,6 +2,7 @@
 
 pushd ..
 make geth
+go build ./cmd/bootnode
 popd
 
 # build with 'make geth' in root directory
