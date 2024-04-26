@@ -19,8 +19,10 @@ ${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PA
 	# clean
 	rm -rf ${TEMP_KEY_GEN}
 
+.PHONY: gen-keys
 gen-keys: ${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys.bin
 
+.PHONY: clean
 clean:
 	rm -rf node1
 	rm -rf ../node1
