@@ -1,5 +1,13 @@
 #!/bin/sh
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+if [ "$SCRIPT_DIR" != "$(pwd)" ];
+then
+	echo setup.sh script must be executed from its own working directory
+	exit 1
+fi
+
 pushd ..
 make geth
 go build ./cmd/bootnode
