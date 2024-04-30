@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/zama-ai/fhevm-go-coproc/fhevm"
 )
 
 type (
@@ -121,6 +122,18 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
+}
+
+var fhevmExecutor fhevm.Executor
+
+// hacky, and this is for demo, but we need a lot of refactorings
+// of NewEVM method otherwise
+func init() {
+	var err error
+	fhevmExecutor, err = fhevm.InitCoprocessor()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should

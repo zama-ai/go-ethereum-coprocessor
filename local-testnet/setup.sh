@@ -1,9 +1,26 @@
 #!/bin/sh
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+if [ "$SCRIPT_DIR" != "$(pwd)" ];
+then
+	echo setup.sh script must be executed from its own working directory
+	exit 1
+fi
+
+pushd ..
+make geth
+go build ./cmd/bootnode
+popd
+
+make gen-keys
+
 # build with 'make geth' in root directory
 GETH=../build/bin/geth
 # build with 'go build ./cmd/bootnode' in root directory
 BOOTNODE=../bootnode
+
+FHEVM_CONTRACT_ADDRESS='0x168813841d158Ea8508f91f71aF338e4cB4d396e'
 
 ps aux | grep geth | grep -v grep | awk '{print $2}' | xargs kill
 ps aux | grep bootnode | grep '\-nodekey' | grep -v grep | grep -v tmux | awk '{print $2}' | xargs kill
@@ -38,6 +55,6 @@ tmux new -s val2 -d "echo '' | $GETH --datadir node2 --port 30307 \
 	--authrpc.port 8552 --mine --miner.etherbase 0xc69587634CaF07DF2ab35893Ea35B9512F66b854"
 
 # rpc node
-tmux new -s rpc1 -d "$GETH --datadir node3 --port 30308 --http --http.port 8745 \
+tmux new -s rpc1 -d "FHEVM_GO_INIT_CKS=1 FHEVM_GO_KEYS_DIR=fhevm-keys FHEVM_CIPHERTEXTS_DB=node3/fhevm_ciphertexts.sqlite FHEVM_CONTRACT_ADDRESS=$FHEVM_CONTRACT_ADDRESS $GETH --datadir node3 --port 30308 --http --http.port 8745 \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
-	--authrpc.port 8553"
+	--authrpc.port 8553 2>&1 | tee node3/exec.log"
