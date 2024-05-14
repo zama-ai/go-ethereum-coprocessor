@@ -54,7 +54,9 @@ tmux new -s val2 -d "echo '' | $GETH --datadir node2 --port 30307 \
 	--networkid 12345 --unlock 0xc69587634CaF07DF2ab35893Ea35B9512F66b854 \
 	--authrpc.port 8552 --mine --miner.etherbase 0xc69587634CaF07DF2ab35893Ea35B9512F66b854"
 
+RPC_PARAMS="FHEVM_GO_INIT_CKS=1 FHEVM_GO_KEYS_DIR=fhevm-keys FHEVM_CIPHERTEXTS_DB=node3/fhevm_ciphertexts.sqlite FHEVM_CONTRACT_ADDRESS=$FHEVM_CONTRACT_ADDRESS FHEVM_COPROCESSOR_PRIVATE_KEY_FILE=node3/coprocessor.key"
+
 # rpc node
-tmux new -s rpc1 -d "FHEVM_GO_INIT_CKS=1 FHEVM_GO_KEYS_DIR=fhevm-keys FHEVM_CIPHERTEXTS_DB=node3/fhevm_ciphertexts.sqlite FHEVM_CONTRACT_ADDRESS=$FHEVM_CONTRACT_ADDRESS $GETH --datadir node3 --port 30308 --http --http.port 8745 \
+tmux new -s rpc1 -d "$RPC_PARAMS $GETH --datadir node3 --port 30308 --http --http.port 8745 \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
 	--authrpc.port 8553 2>&1 | tee node3/exec.log"

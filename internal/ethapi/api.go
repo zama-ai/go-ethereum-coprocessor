@@ -673,6 +673,29 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 	return (*hexutil.Big)(b), state.Error()
 }
 
+// Inserts ciphertext with proof
+func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload *hexutil.Big) (map[string]interface{}, error) {
+	if vm.FhevmExecutor == nil {
+		return nil, errors.New("fhevm executor is disabled on this node")
+	}
+
+	bytes, err := hexutil.Decode(payload.String())
+	if err != nil {
+		return nil, err
+	}
+
+	signedHandle, err := vm.FhevmExecutor.AddUserCiphertext(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string]interface{})
+	res["handle"] = hexutil.Encode(signedHandle.Handle)
+	res["signature"] = hexutil.Encode(signedHandle.Signature)
+
+	return res, nil
+}
+
 // AccountResult structs for GetProof
 type AccountResult struct {
 	Address      common.Address  `json:"address"`
