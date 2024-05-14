@@ -124,13 +124,13 @@ type EVM struct {
 	callGasTemp uint64
 }
 
-var fhevmExecutor fhevm.Executor
+var FhevmExecutor fhevm.Executor
 
 // hacky, and this is for demo, but we need a lot of refactorings
 // of NewEVM method otherwise
 func init() {
 	var err error
-	fhevmExecutor, err = fhevm.InitCoprocessor()
+	FhevmExecutor, err = fhevm.InitCoprocessor()
 	if err != nil {
 		panic(err)
 	}
