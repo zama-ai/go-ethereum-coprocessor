@@ -72,6 +72,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
+	if vm.FhevmCoprocessor != nil {
+		cfg.BlockData = block
+	}
 	var (
 		context = NewEVMBlockContext(header, p.bc, nil)
 		vmenv   = vm.NewEVM(context, vm.TxContext{}, statedb, p.config, cfg)
@@ -164,6 +167,14 @@ func ApplyTransactionWithEVM(msg *Message, config *params.ChainConfig, gp *GasPo
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+
+	if !result.Failed() && evm.CoprocessorSession != nil {
+		err = evm.CoprocessorSession.Commit()
+		if err != nil {
+			return receipt, errors.New("coprocessor transaction commit failed")
+		}
+	}
+
 	return receipt, err
 }
 
