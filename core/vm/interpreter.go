@@ -19,6 +19,7 @@ package vm
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 )
@@ -29,6 +30,7 @@ type Config struct {
 	NoBaseFee               bool      // Forces the EIP-1559 baseFee to 0 (needed for 0 price calls)
 	EnablePreimageRecording bool      // Enables recording of SHA3/keccak preimages
 	ExtraEips               []int     // Additional EIPS that are to be enabled
+	BlockData               *types.Block
 }
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
@@ -238,10 +240,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		err = nil // clear stop token error
 	}
 
-	if !readOnly && err == nil && FhevmExecutor != nil {
-		if input != nil && res != nil && contract.Address() == FhevmExecutor.ContractAddress() {
+	if !readOnly && in.evm.CoprocessorSession != nil {
+		if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
 			log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
-			coprocErr := FhevmExecutor.Execute(input, res)
+			coprocErr := in.evm.CoprocessorSession.Execute(input, res)
 			if coprocErr != nil {
 				log.Error("Error executing coprocessor payload", "error", coprocErr)
 			}
