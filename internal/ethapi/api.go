@@ -678,6 +678,28 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload *hexutil.
 	return res, nil
 }
 
+func (s *BlockChainAPI) GetCiphertextByHandle(ctx context.Context, payload *hexutil.Big) (map[string]interface{}, error) {
+	if vm.FhevmCoprocessor == nil {
+		return nil, errors.New("fhevm executor is disabled on this node")
+	}
+
+	bytes, err := hexutil.Decode(payload.String())
+	if err != nil {
+		return nil, err
+	}
+
+	theType, ct, err := vm.FhevmCoprocessor.GetStore().GetCiphertext(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string]interface{})
+	res["type"] = theType
+	res["ciphertext"] = hexutil.Encode(ct)
+
+	return res, nil
+}
+
 // AccountResult structs for GetProof
 type AccountResult struct {
 	Address      common.Address  `json:"address"`
