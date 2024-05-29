@@ -1,0 +1,2 @@
+sks filter=lfs diff=lfs merge=lfs -text
+default-software-keys.bin filter=lfs diff=lfs merge=lfs -text
