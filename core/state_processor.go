@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -171,7 +172,8 @@ func ApplyTransactionWithEVM(msg *Message, config *params.ChainConfig, gp *GasPo
 	if !result.Failed() && evm.CoprocessorSession != nil {
 		err = evm.CoprocessorSession.Commit()
 		if err != nil {
-			return receipt, errors.New("coprocessor transaction commit failed")
+			// only log, don't return not to halt blockchain
+			log.Error("coprocessor transaction commit failed", "err", err)
 		}
 	}
 

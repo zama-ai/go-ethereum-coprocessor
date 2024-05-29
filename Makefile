@@ -2,17 +2,20 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: geth all test lint clean devtools help
+.PHONY: geth all test lint clean devtools help fhevm-go-coproc
 
 GOBIN = ./build/bin
 GO ?= latest
 GORUN = go run
 
 #? geth: Build geth
-geth:
+geth: fhevm-go-coproc
 	$(GORUN) build/ci.go install ./cmd/geth
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/geth\" to launch geth."
+
+fhevm-go-coproc:
+	cd fhevm-go-coproc && $(MAKE) build
 
 #? all: Build all packages and executables
 all:

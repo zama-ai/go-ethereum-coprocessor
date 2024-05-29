@@ -32,6 +32,7 @@ mkdir node1 node2 node3
 #$GETH --datadir node2 account new
 cp -r prep/node1/keystore node1/
 cp -r prep/node2/keystore node2/
+cp prep/coprocessor.key node3/
 cp prep/genesis.json ./
 
 $GETH init --datadir node1 genesis.json
@@ -58,5 +59,6 @@ RPC_PARAMS="FHEVM_GO_INIT_CKS=1 FHEVM_GO_KEYS_DIR=fhevm-keys FHEVM_CIPHERTEXTS_D
 
 # rpc node
 tmux new -s rpc1 -d "$RPC_PARAMS $GETH --datadir node3 --port 30308 --http --http.port 8745 \
+	--gcmode archive --vmdebug --http.api \"eth,net,web3,debug\" \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
 	--authrpc.port 8553 2>&1 | tee node3/exec.log"
