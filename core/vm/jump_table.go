@@ -82,17 +82,11 @@ func validate(jt JumpTable) JumpTable {
 
 func newCancunInstructionSet() JumpTable {
 	instructionSet := newShanghaiInstructionSet()
-	enable4844(&instructionSet) // EIP-4844 (BLOBHASH opcode)
-	enable7516(&instructionSet) // EIP-7516 (BLOBBASEFEE opcode)
-	enable1153(&instructionSet) // EIP-1153 "Transient Storage"
-	enable5656(&instructionSet) // EIP-5656 (MCOPY opcode)
-	enable6780(&instructionSet) // EIP-6780 SELFDESTRUCT only in same transaction
 	return validate(instructionSet)
 }
 
 func newShanghaiInstructionSet() JumpTable {
 	instructionSet := newMergeInstructionSet()
-	enable3855(&instructionSet) // PUSH0 instruction
 	enable3860(&instructionSet) // Limit and meter initcode
 
 	return validate(instructionSet)
@@ -115,6 +109,12 @@ func newLondonInstructionSet() JumpTable {
 	instructionSet := newBerlinInstructionSet()
 	enable3529(&instructionSet) // EIP-3529: Reduction in refunds https://eips.ethereum.org/EIPS/eip-3529
 	enable3198(&instructionSet) // Base fee opcode https://eips.ethereum.org/EIPS/eip-3198
+	enable3855(&instructionSet) // PUSH0 instruction
+	enable1153(&instructionSet) // EIP-1153 "Transient Storage"
+	enable5656(&instructionSet) // EIP-5656 (MCOPY opcode)
+	enable4844(&instructionSet) // EIP-4844 (BLOBHASH opcode)
+	enable7516(&instructionSet) // EIP-7516 (BLOBBASEFEE opcode)
+	enable6780(&instructionSet) // EIP-6780 SELFDESTRUCT only in same transaction
 	return validate(instructionSet)
 }
 
