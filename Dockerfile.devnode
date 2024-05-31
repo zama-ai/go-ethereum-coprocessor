@@ -19,6 +19,7 @@ COPY --from=build-env /src/geth/bootnode /usr/bin/
 COPY --from=build-env /src/geth/build/bin/geth /usr/bin/
 COPY --from=build-env /src/geth/single-node-testnet/ /usr/share/devnet-resources/
 COPY --from=build-env /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
+COPY --from=build-env /src/geth/local-testnet/prep/coprocessor.key /rpc-data/
 COPY --from=build-env /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
 
 WORKDIR /
