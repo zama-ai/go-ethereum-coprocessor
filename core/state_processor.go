@@ -73,9 +73,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
 	}
-	if vm.FhevmCoprocessor != nil {
-		cfg.BlockData = block
-	}
 	var (
 		context = NewEVMBlockContext(header, p.bc, nil)
 		vmenv   = vm.NewEVM(context, vm.TxContext{}, statedb, p.config, cfg)
@@ -92,12 +89,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		statedb.SetTxContext(tx.Hash(), i)
 
+		if vm.FhevmCoprocessor != nil {
+			vmenv.CoprocessorSession = vm.FhevmCoprocessor.CreateSession()
+		}
 		receipt, err := ApplyTransactionWithEVM(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+
+		if vm.FhevmCoprocessor != nil && receipt.Status == types.ReceiptStatusSuccessful {
+			err = vmenv.CoprocessorSession.Commit()
+			if err != nil {
+				// only log, don't return not to halt blockchain
+				log.Error("coprocessor transaction commit failed", "err", err)
+			}
+		}
 	}
 	// Fail if Shanghai not enabled and len(withdrawals) is non-zero.
 	withdrawals := block.Withdrawals()
@@ -168,14 +176,6 @@ func ApplyTransactionWithEVM(msg *Message, config *params.ChainConfig, gp *GasPo
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
-
-	if !result.Failed() && evm.CoprocessorSession != nil {
-		err = evm.CoprocessorSession.Commit()
-		if err != nil {
-			// only log, don't return not to halt blockchain
-			log.Error("coprocessor transaction commit failed", "err", err)
-		}
-	}
 
 	return receipt, err
 }

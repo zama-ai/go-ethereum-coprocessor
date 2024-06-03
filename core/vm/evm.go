@@ -155,10 +155,6 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 			blockCtx.BlobBaseFee = new(big.Int)
 		}
 	}
-	var coprocessorSession fhevm.CoprocessorSession
-	if FhevmCoprocessor != nil && config.BlockData != nil {
-		coprocessorSession = FhevmCoprocessor.CreateSession()
-	}
 	evm := &EVM{
 		Context:            blockCtx,
 		TxContext:          txCtx,
@@ -166,7 +162,7 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 		Config:             config,
 		chainConfig:        chainConfig,
 		chainRules:         chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
-		CoprocessorSession: coprocessorSession,
+		CoprocessorSession: nil,
 	}
 	evm.interpreter = NewEVMInterpreter(evm)
 	return evm
