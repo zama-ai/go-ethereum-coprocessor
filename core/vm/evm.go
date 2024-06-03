@@ -141,6 +141,18 @@ func init() {
 	}
 }
 
+var fhevmExecutor fhevm.Executor
+
+// hacky, and this is for demo, but we need a lot of refactorings
+// of NewEVM method otherwise
+func init() {
+	var err error
+	fhevmExecutor, err = fhevm.InitCoprocessor()
+	if err != nil {
+		panic(err)
+	}
+}
+
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig *params.ChainConfig, config Config) *EVM {
