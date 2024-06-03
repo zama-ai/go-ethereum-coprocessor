@@ -18,8 +18,6 @@ package vm
 
 import (
 	"errors"
-	"context"
-	"fmt"
 	"math/big"
 	"sync/atomic"
 
