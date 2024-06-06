@@ -121,16 +121,17 @@ type EVM struct {
 	// callGasTemp holds the gas available for the current call. This is needed because the
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
-	callGasTemp uint64
+	callGasTemp        uint64
+	CoprocessorSession fhevm.CoprocessorSession
 }
 
-var fhevmExecutor fhevm.Executor
+var FhevmCoprocessor fhevm.CoprocessorApi
 
 // hacky, and this is for demo, but we need a lot of refactorings
 // of NewEVM method otherwise
 func init() {
 	var err error
-	fhevmExecutor, err = fhevm.InitCoprocessor()
+	FhevmCoprocessor, err = fhevm.InitCoprocessor()
 	if err != nil {
 		panic(err)
 	}
@@ -157,6 +158,8 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 		Config:      config,
 		chainConfig: chainConfig,
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
+		// set upon block processing
+		CoprocessorSession: nil,
 	}
 	evm.interpreter = NewEVMInterpreter(evm)
 	return evm

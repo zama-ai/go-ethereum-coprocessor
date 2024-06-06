@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/zama-ai/fhevm-go-coproc/fhevm"
 )
 
 // Config are the configuration options for the Interpreter
@@ -165,6 +166,12 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			}
 		}()
 	}
+
+	var coprocSegmentId fhevm.SegmentId
+	if !readOnly && in.evm.CoprocessorSession != nil {
+		coprocSegmentId = in.evm.CoprocessorSession.NextSegment()
+	}
+
 	// The Interpreter main run loop (contextual). This loop runs until either an
 	// explicit STOP, RETURN or SELFDESTRUCT is executed, an error occurred during
 	// the execution of one of the operations or until the done flag is set by the
@@ -238,12 +245,16 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		err = nil // clear stop token error
 	}
 
-	if !readOnly && err == nil && fhevmExecutor != nil {
-		if input != nil && res != nil && contract.Address() == fhevmExecutor.ContractAddress() {
-			log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
-			coprocErr := fhevmExecutor.Execute(input, res)
-			if coprocErr != nil {
-				log.Error("Error executing coprocessor payload", "error", coprocErr)
+	if !readOnly && in.evm.CoprocessorSession != nil {
+		if err != nil {
+			_ = in.evm.CoprocessorSession.InvalidateSinceSegment(coprocSegmentId)
+		} else {
+			if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
+				log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
+				coprocErr := in.evm.CoprocessorSession.Execute(input, res)
+				if coprocErr != nil {
+					log.Error("Error executing coprocessor payload", "error", coprocErr)
+				}
 			}
 		}
 	}

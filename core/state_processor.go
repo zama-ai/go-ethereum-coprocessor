@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -86,12 +87,23 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		statedb.SetTxContext(tx.Hash(), i)
+		if vm.FhevmCoprocessor != nil {
+			vmenv.CoprocessorSession = vm.FhevmCoprocessor.CreateSession()
+		}
 		receipt, err := applyTransaction(msg, p.config, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+
+		if vm.FhevmCoprocessor != nil && receipt.Status == types.ReceiptStatusSuccessful {
+			err = vmenv.CoprocessorSession.Commit()
+			if err != nil {
+				// only log, don't return not to halt blockchain
+				log.Error("coprocessor transaction commit failed", "err", err)
+			}
+		}
 	}
 	// Fail if Shanghai not enabled and len(withdrawals) is non-zero.
 	withdrawals := block.Withdrawals()
@@ -151,6 +163,7 @@ func applyTransaction(msg *Message, config *params.ChainConfig, gp *GasPool, sta
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+
 	return receipt, err
 }
 

@@ -3,7 +3,7 @@ ROOT_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TEST_KEYS_PATH = ${ROOT_DIR}/fhevm-keys
 TEMP_KEY_GEN = ./.temp_keygen
 
-${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys:
+${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys.bin:
 	# make sure to have a fresh dir for keys
 	rm -rf ${TEMP_KEY_GEN}
 	mkdir ${TEMP_KEY_GEN}

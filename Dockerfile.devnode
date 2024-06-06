@@ -1,0 +1,27 @@
+ARG GETH_NODE_VERSION=v1.13.11
+ARG ZBC_VERSION=latest
+
+FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION} AS build-env
+
+ADD . /src/geth
+WORKDIR /src/geth
+
+RUN cd fhevm-go-coproc && make build
+RUN go build ./cmd/bootnode
+RUN make geth
+
+FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION}
+
+RUN mkdir /val-data /rpc-data
+
+COPY --from=build-env /src/ /src/
+COPY --from=build-env /src/geth/bootnode /usr/bin/
+COPY --from=build-env /src/geth/build/bin/geth /usr/bin/
+COPY --from=build-env /src/geth/single-node-testnet/ /usr/share/devnet-resources/
+COPY --from=build-env /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
+COPY --from=build-env /src/geth/local-testnet/prep/coprocessor.key /rpc-data/
+COPY --from=build-env /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
+
+WORKDIR /
+
+ENTRYPOINT ["/entrypoint.sh"]
