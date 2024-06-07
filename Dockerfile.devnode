@@ -14,6 +14,7 @@ RUN mv /tmp/prysmctl-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-ctl && chmod +x
 ADD . /src/geth
 WORKDIR /src/geth
 
+RUN apt-get install -y git-lfs
 RUN cd fhevm-go-coproc && make build
 RUN go build ./cmd/bootnode
 RUN make geth
