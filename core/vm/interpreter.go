@@ -213,8 +213,23 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 	}
 
 	var coprocSegmentId fhevm.SegmentId
-	if !readOnly && in.evm.CoprocessorSession != nil {
+	useCoprocessor := !readOnly && in.evm.CoprocessorSession != nil
+	isValidCoprocessorSegment := false
+	if useCoprocessor {
 		coprocSegmentId = in.evm.CoprocessorSession.NextSegment()
+		defer func() {
+			if isValidCoprocessorSegment {
+				if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
+					log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
+					coprocErr := in.evm.CoprocessorSession.Execute(input, res)
+					if coprocErr != nil {
+						log.Error("Error executing coprocessor payload", "error", coprocErr)
+					}
+				}
+			} else {
+				_ = in.evm.CoprocessorSession.InvalidateSinceSegment(coprocSegmentId)
+			}
+		}()
 	}
 
 	// The Interpreter main run loop (contextual). This loop runs until either an
@@ -306,18 +321,9 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		err = nil // clear stop token error
 	}
 
-	if !readOnly && in.evm.CoprocessorSession != nil {
-		if err != nil {
-			_ = in.evm.CoprocessorSession.InvalidateSinceSegment(coprocSegmentId)
-		} else {
-			if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
-				log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
-				coprocErr := in.evm.CoprocessorSession.Execute(input, res)
-				if coprocErr != nil {
-					log.Error("Error executing coprocessor payload", "error", coprocErr)
-				}
-			}
-		}
+	if useCoprocessor && err == nil {
+		// only if this point is reached and there is no error process coprocessor payload in defer block
+		isValidCoprocessorSegment = true
 	}
 
 	return res, err
