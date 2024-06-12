@@ -656,12 +656,12 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 }
 
 // Inserts ciphertext with proof
-func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload *hexutil.Big) (map[string]interface{}, error) {
+func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string) (map[string]interface{}, error) {
 	if vm.FhevmCoprocessor == nil {
 		return nil, errors.New("fhevm executor is disabled on this node")
 	}
 
-	bytes, err := hexutil.Decode(payload.String())
+	bytes, err := hexutil.Decode(payload)
 	if err != nil {
 		return nil, err
 	}
@@ -672,8 +672,13 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload *hexutil.
 	}
 
 	res := make(map[string]interface{})
-	res["handle"] = hexutil.Encode(signedHandle.Handle)
+	handles := make([]string, 0, len(signedHandle.InputHandles))
+	for _, i := range signedHandle.InputHandles {
+		handles = append(handles, hexutil.Encode(i))
+	}
+	res["handles"] = handles
 	res["signature"] = hexutil.Encode(signedHandle.Signature)
+	res["inputHandle"] = hexutil.Encode(signedHandle.InputHandle)
 
 	return res, nil
 }
