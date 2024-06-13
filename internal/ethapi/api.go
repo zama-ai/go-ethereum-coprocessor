@@ -655,8 +655,10 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 	return (*hexutil.Big)(b), state.Error()
 }
 
+var coprocInputsTypeHash = crypto.Keccak256([]byte("CiphertextVerification(uint256[] handlesList,address contractAddress,address callerAddress)"))
+
 // Inserts ciphertext with proof
-func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string) (map[string]interface{}, error) {
+func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, contractAddress common.Address, callerAddress common.Address) (map[string]interface{}, error) {
 	if vm.FhevmCoprocessor == nil {
 		return nil, errors.New("fhevm executor is disabled on this node")
 	}
@@ -666,19 +668,39 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string) (
 		return nil, err
 	}
 
-	signedHandle, err := vm.FhevmCoprocessor.InsertInputCiphertext(bytes)
+	handles, err := vm.FhevmCoprocessor.InsertInputCiphertext(bytes)
 	if err != nil {
 		return nil, err
 	}
 
 	res := make(map[string]interface{})
-	handles := make([]string, 0, len(signedHandle.InputHandles))
-	for _, i := range signedHandle.InputHandles {
-		handles = append(handles, hexutil.Encode(i))
+	encHandles := make([]string, 0, len(handles.InputHandles))
+	for _, i := range handles.InputHandles {
+		encHandles = append(encHandles, hexutil.Encode(i))
 	}
-	res["handles"] = handles
-	res["signature"] = hexutil.Encode(signedHandle.Signature)
-	res["inputHandle"] = hexutil.Encode(signedHandle.InputHandle)
+	res["handlesList"] = encHandles
+	res["contractAddress"] = contractAddress.Hex()
+	res["callerAddress"] = callerAddress.Hex()
+
+	// EIP712 signature
+	payloadToHash := make([]byte, 0, 64)
+	payloadToHash = append(payloadToHash, coprocInputsTypeHash...)
+	for _, handle := range handles.InputHandles {
+		payloadToHash = append(payloadToHash, handle...)
+	}
+	padded := make([]byte, 32)
+	contractAddress.SetBytes(padded)
+	payloadToHash = append(payloadToHash, padded...)
+	callerAddress.SetBytes(padded)
+	payloadToHash = append(payloadToHash, padded...)
+	payloadHash := crypto.Keccak256(payloadToHash)
+	signature, err := vm.FhevmCoprocessor.SignData(payloadHash)
+
+	if err != nil {
+		return nil, err
+	}
+
+	res["signature"] = hexutil.Encode(signature)
 
 	return res, nil
 }
