@@ -657,7 +657,7 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 	return (*hexutil.Big)(b), state.Error()
 }
 
-func createInputsTypedData(chainId *math.HexOrDecimal256, inputs [][]byte, contractAddress common.Address, callerAddress common.Address) signerApi.TypedData {
+func createInputsTypedData(chainId *math.HexOrDecimal256, verifyingContract common.Address, inputs [][]byte, contractAddress common.Address, callerAddress common.Address) signerApi.TypedData {
 	hexInputs := make([]string, 0, len(inputs))
 	for _, i := range inputs {
 		hexInputs = append(hexInputs, hexutil.Encode(i))
@@ -667,6 +667,7 @@ func createInputsTypedData(chainId *math.HexOrDecimal256, inputs [][]byte, contr
 		{Name: "name", Type: "string"},
 		{Name: "version", Type: "string"},
 		{Name: "chainId", Type: "uint256"},
+		{Name: "verifyingContract", Type: "string"},
 	}
 
 	theData := signerApi.TypedData{
@@ -679,9 +680,10 @@ func createInputsTypedData(chainId *math.HexOrDecimal256, inputs [][]byte, contr
 			},
 		},
 		Domain: signerApi.TypedDataDomain{
-			Name:    "FHEVMCoprocessor",
-			Version: "1",
-			ChainId: chainId,
+			Name:              "FHEVMCoprocessor",
+			Version:           "1",
+			ChainId:           chainId,
+			VerifyingContract: verifyingContract.Hex(),
 		},
 		PrimaryType: "CiphertextVerification",
 		Message: signerApi.TypedDataMessage{
@@ -719,7 +721,7 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, c
 	res["contractAddress"] = contractAddress.Hex()
 	res["callerAddress"] = callerAddress.Hex()
 
-	typedData := createInputsTypedData((*math.HexOrDecimal256)(s.ChainId()), handles.InputHandles, contractAddress, callerAddress)
+	typedData := createInputsTypedData((*math.HexOrDecimal256)(s.ChainId()), vm.FhevmCoprocessor.CreateSession().ContractAddress(), handles.InputHandles, contractAddress, callerAddress)
 	hashOfPayload, _, err := signerApi.TypedDataAndHash(typedData)
 	if err != nil {
 		return nil, err
