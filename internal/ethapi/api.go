@@ -47,6 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	signerApi "github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
 	"github.com/tyler-smith/go-bip39"
@@ -656,7 +657,42 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 	return (*hexutil.Big)(b), state.Error()
 }
 
-var coprocInputsTypeHash = crypto.Keccak256([]byte("CiphertextVerification(uint256[] handlesList,address contractAddress,address callerAddress)"))
+func createInputsTypedData(chainId *math.HexOrDecimal256, inputs [][]byte, contractAddress common.Address, callerAddress common.Address) signerApi.TypedData {
+	hexInputs := make([]string, 0, len(inputs))
+	for _, i := range inputs {
+		hexInputs = append(hexInputs, hexutil.Encode(i))
+	}
+
+	var domainType = []signerApi.Type{
+		{Name: "name", Type: "string"},
+		{Name: "version", Type: "string"},
+		{Name: "chainId", Type: "uint256"},
+	}
+
+	theData := signerApi.TypedData{
+		Types: signerApi.Types{
+			"EIP712Domain": domainType,
+			"CiphertextVerification": []signerApi.Type{
+				{Name: "handlesList", Type: "uint256[]"},
+				{Name: "contractAddress", Type: "address"},
+				{Name: "callerAddress", Type: "address"},
+			},
+		},
+		Domain: signerApi.TypedDataDomain{
+			Name:    "FHEVMCoprocessor",
+			Version: "1",
+			ChainId: chainId,
+		},
+		PrimaryType: "CiphertextVerification",
+		Message: signerApi.TypedDataMessage{
+			"handlesList":     hexInputs,
+			"contractAddress": contractAddress.Hex(),
+			"callerAddress":   callerAddress.Hex(),
+		},
+	}
+
+	return theData
+}
 
 // Inserts ciphertext with proof
 func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, contractAddress common.Address, callerAddress common.Address) (map[string]interface{}, error) {
@@ -683,19 +719,13 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, c
 	res["contractAddress"] = contractAddress.Hex()
 	res["callerAddress"] = callerAddress.Hex()
 
-	// EIP712 signature
-	payloadToHash := make([]byte, 0, 64)
-	payloadToHash = append(payloadToHash, coprocInputsTypeHash...)
-	for _, handle := range handles.InputHandles {
-		payloadToHash = append(payloadToHash, handle...)
+	typedData := createInputsTypedData((*math.HexOrDecimal256)(s.ChainId()), handles.InputHandles, contractAddress, callerAddress)
+	hashOfPayload, _, err := signerApi.TypedDataAndHash(typedData)
+	if err != nil {
+		return nil, err
 	}
-	padded := make([]byte, 32)
-	contractAddress.SetBytes(padded)
-	payloadToHash = append(payloadToHash, padded...)
-	callerAddress.SetBytes(padded)
-	payloadToHash = append(payloadToHash, padded...)
-	payloadHash := crypto.Keccak256(payloadToHash)
-	signature, err := vm.FhevmCoprocessor.SignData(payloadHash)
+
+	signature, err := vm.FhevmCoprocessor.SignData(hashOfPayload)
 
 	if err != nil {
 		return nil, err
