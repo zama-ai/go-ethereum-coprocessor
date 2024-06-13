@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
 	"time"
@@ -723,6 +724,21 @@ func (s *BlockChainAPI) GetCiphertextByHandle(ctx context.Context, payload *hexu
 	res := make(map[string]interface{})
 	res["type"] = theType
 	res["ciphertext"] = hexutil.Encode(ct)
+
+	return res, nil
+}
+
+func (s *BlockChainAPI) GetPublicFhevmKey(ctx context.Context) (map[string]interface{}, error) {
+	if vm.FhevmCoprocessor == nil {
+		return nil, errors.New("fhevm executor is disabled on this node")
+	}
+
+	bytes, err := io.ReadAll(vm.FhevmCoprocessor.PublicFhevmKey())
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string]interface{})
+	res["publicKey"] = hexutil.Encode(bytes)
 
 	return res, nil
 }
