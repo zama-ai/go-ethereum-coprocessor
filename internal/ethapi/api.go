@@ -667,7 +667,7 @@ func createInputsTypedData(chainId *math.HexOrDecimal256, verifyingContract comm
 		{Name: "name", Type: "string"},
 		{Name: "version", Type: "string"},
 		{Name: "chainId", Type: "uint256"},
-		{Name: "verifyingContract", Type: "string"},
+		{Name: "verifyingContract", Type: "address"},
 	}
 
 	theData := signerApi.TypedData{
@@ -727,7 +727,8 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, c
 		return nil, err
 	}
 
-	signature, err := vm.FhevmCoprocessor.SignData(hashOfPayload)
+	signature, err := vm.FhevmCoprocessor.SignHash(hashOfPayload)
+	signature[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
 
 	if err != nil {
 		return nil, err
