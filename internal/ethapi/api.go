@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"strings"
 	"time"
@@ -46,6 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	signerApi "github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/holiman/uint256"
 	"github.com/tyler-smith/go-bip39"
@@ -655,25 +657,84 @@ func (s *BlockChainAPI) GetBalance(ctx context.Context, address common.Address, 
 	return (*hexutil.Big)(b), state.Error()
 }
 
+func createInputsTypedData(chainId *math.HexOrDecimal256, verifyingContract common.Address, inputs [][]byte, contractAddress common.Address, callerAddress common.Address) signerApi.TypedData {
+	hexInputs := make([]string, 0, len(inputs))
+	for _, i := range inputs {
+		hexInputs = append(hexInputs, hexutil.Encode(i))
+	}
+
+	var domainType = []signerApi.Type{
+		{Name: "name", Type: "string"},
+		{Name: "version", Type: "string"},
+		{Name: "chainId", Type: "uint256"},
+		{Name: "verifyingContract", Type: "address"},
+	}
+
+	theData := signerApi.TypedData{
+		Types: signerApi.Types{
+			"EIP712Domain": domainType,
+			"CiphertextVerification": []signerApi.Type{
+				{Name: "handlesList", Type: "uint256[]"},
+				{Name: "contractAddress", Type: "address"},
+				{Name: "callerAddress", Type: "address"},
+			},
+		},
+		Domain: signerApi.TypedDataDomain{
+			Name:              "FHEVMCoprocessor",
+			Version:           "1",
+			ChainId:           chainId,
+			VerifyingContract: verifyingContract.Hex(),
+		},
+		PrimaryType: "CiphertextVerification",
+		Message: signerApi.TypedDataMessage{
+			"handlesList":     hexInputs,
+			"contractAddress": contractAddress.Hex(),
+			"callerAddress":   callerAddress.Hex(),
+		},
+	}
+
+	return theData
+}
+
 // Inserts ciphertext with proof
-func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload *hexutil.Big) (map[string]interface{}, error) {
+func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, contractAddress common.Address, callerAddress common.Address) (map[string]interface{}, error) {
 	if vm.FhevmCoprocessor == nil {
 		return nil, errors.New("fhevm executor is disabled on this node")
 	}
 
-	bytes, err := hexutil.Decode(payload.String())
+	bytes, err := hexutil.Decode(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	signedHandle, err := vm.FhevmCoprocessor.InsertInputCiphertext(bytes)
+	handles, err := vm.FhevmCoprocessor.InsertInputCiphertext(bytes)
 	if err != nil {
 		return nil, err
 	}
 
 	res := make(map[string]interface{})
-	res["handle"] = hexutil.Encode(signedHandle.Handle)
-	res["signature"] = hexutil.Encode(signedHandle.Signature)
+	encHandles := make([]string, 0, len(handles.InputHandles))
+	for _, i := range handles.InputHandles {
+		encHandles = append(encHandles, hexutil.Encode(i))
+	}
+	res["handlesList"] = encHandles
+	res["contractAddress"] = contractAddress.Hex()
+	res["callerAddress"] = callerAddress.Hex()
+
+	typedData := createInputsTypedData((*math.HexOrDecimal256)(s.ChainId()), vm.FhevmCoprocessor.CreateSession().ContractAddress(), handles.InputHandles, contractAddress, callerAddress)
+	hashOfPayload, _, err := signerApi.TypedDataAndHash(typedData)
+	if err != nil {
+		return nil, err
+	}
+
+	signature, err := vm.FhevmCoprocessor.SignHash(hashOfPayload)
+	signature[64] += 27 // Transform V from 0/1 to 27/28 according to the yellow paper
+
+	if err != nil {
+		return nil, err
+	}
+
+	res["signature"] = hexutil.Encode(signature)
 
 	return res, nil
 }
@@ -696,6 +757,21 @@ func (s *BlockChainAPI) GetCiphertextByHandle(ctx context.Context, payload *hexu
 	res := make(map[string]interface{})
 	res["type"] = theType
 	res["ciphertext"] = hexutil.Encode(ct)
+
+	return res, nil
+}
+
+func (s *BlockChainAPI) GetPublicFhevmKey(ctx context.Context) (map[string]interface{}, error) {
+	if vm.FhevmCoprocessor == nil {
+		return nil, errors.New("fhevm executor is disabled on this node")
+	}
+
+	bytes, err := io.ReadAll(vm.FhevmCoprocessor.PublicFhevmKey())
+	if err != nil {
+		return nil, err
+	}
+	res := make(map[string]interface{})
+	res["publicKey"] = hexutil.Encode(bytes)
 
 	return res, nil
 }
