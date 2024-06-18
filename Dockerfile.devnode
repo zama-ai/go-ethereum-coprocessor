@@ -21,7 +21,10 @@ COPY --from=build-env /src/geth/single-node-testnet/ /usr/share/devnet-resources
 COPY --from=build-env /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
 COPY --from=build-env /src/geth/local-testnet/prep/coprocessor.key /rpc-data/
 COPY --from=build-env /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
+COPY --from=build-env /src/geth/scripts/faucet.sh /usr/bin/faucet
 
 WORKDIR /
+
+ENV VALIDATOR_ACCOUNT=0x1181a1fb7b6de97d4cb06da82a0037df1ffe32d0
 
 ENTRYPOINT ["/entrypoint.sh"]
