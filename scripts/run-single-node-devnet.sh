@@ -1,36 +1,113 @@
 #!/bin/sh
 
+set -e
+
 ACL_CONTRACT_ADDRESS=${ACL_CONTRACT_ADDRESS:-0x168813841d158Ea8508f91f71aF338e4cB4d396e}
 COPROCESSOR_CONTRACT_ADDRESS=${COPROCESSOR_CONTRACT_ADDRESS:-0x6819e3aDc437fAf9D533490eD3a7552493fCE3B1}
 COPROCESSOR_ACCOUNT_ADDRESS=${COPROCESSOR_ACCOUNT_ADDRESS:-0xc9990FEfE0c27D31D0C2aa36196b085c0c4d456c}
 
 # serve keys so fhevm-go-coproc library can download at initialization
-python3 -m http.server -d /usr/share/devnet-resources/fhevm-keys 8000 &
+nohup python3 -m http.server -d /usr/share/devnet-resources/fhevm-keys 8000 > /var/log/http-server.log &
 
-geth init --datadir /val-data /usr/share/devnet-resources/genesis.json
-geth init --datadir /rpc-data /usr/share/devnet-resources/genesis.json
+prysm-ctl testnet generate-genesis --fork=capella --num-validators=64 --genesis-time-delay=5 \
+	--output-ssz /consensus-genesis.ssz --chain-config-file=/usr/share/devnet-resources/consensus-config.yml \
+	--geth-genesis-json-in=/usr/share/devnet-resources/genesis.json \
+	--geth-genesis-json-out=/geth-genesis.json
+
+mkdir -p /val-data/consensus/
+mkdir -p /rpc-data/consensus/
+cp /consensus-genesis.ssz /val-data/consensus/genesis.ssz
+cp /consensus-genesis.ssz /rpc-data/consensus/genesis.ssz
+cp /usr/share/devnet-resources/consensus-config.yml /rpc-data/consensus/config.yml
+cp /usr/share/devnet-resources/consensus-config.yml /val-data/consensus/config.yml
+
+geth init --state.scheme=hash --datadir /val-data /geth-genesis.json
+geth init --state.scheme=hash --datadir /rpc-data /geth-genesis.json
 
 echo Running bootnode
-bootnode -nodekey /usr/share/devnet-resources/boot.key -addr :30305 &
+nohup bootnode -nodekey /usr/share/devnet-resources/boot.key -addr :30305 > /var/log/bootnode.log &
 
-echo Running RPC node
-FHEVM_GO_INIT_CKS=1 \
-	FHEVM_GO_SKS_URL=http://127.0.0.1:8000/sks \
-	FHEVM_GO_PKS_URL=http://127.0.0.1:8000/pks \
-	FHEVM_GO_CKS_URL=http://127.0.0.1:8000/cks \
-	FORCE_TRANSIENT_STORAGE=true \
-	FHEVM_GO_KEYS_DIR=/usr/share/devnet-resources/fhevm-keys \
-	FHEVM_CIPHERTEXTS_DB=/rpc-data/fhevm_ciphertexts.sqlite \
-	FHEVM_CONTRACT_ADDRESS=$COPROCESSOR_CONTRACT_ADDRESS \
-	FHEVM_COPROCESSOR_PRIVATE_KEY_FILE=/rpc-data/coprocessor.key \
-	FORCE_TRANSIENT_STORAGE=true \
-	geth --datadir /rpc-data --port 30308 --http --http.addr 0.0.0.0 --http.port 8545 \
-	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
-	--authrpc.port 8553 &
-
-echo Running Validator node
+NODE_DIR=/val-data
+echo Running Validator execution node
 # validator node
-echo '' | FORCE_TRANSIENT_STORAGE=true geth --datadir /val-data --port 30306 \
+export FORCE_TRANSIENT_STORAGE=true
+echo '' | nohup geth --datadir $NODE_DIR --port 30306 \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
 	--networkid 12345 --unlock 0x1181A1FB7B6de97d4CB06Da82a0037DF1FFe32D0 \
-	--authrpc.port 8551 --mine --miner.etherbase 0x1181A1FB7B6de97d4CB06Da82a0037DF1FFe32D0
+	--authrpc.port 8551 --mine --miner.etherbase 0x1181A1FB7B6de97d4CB06Da82a0037DF1FFe32D0 > /var/log/val-executor.log &
+
+echo Running validator beacon node
+nohup prysm-beacon --datadir=$NODE_DIR/consensus/beacondata \
+	--p2p-static-id \
+	--p2p-host-ip=127.0.0.1 \
+	--p2p-local-ip=127.0.0.1 \
+	--p2p-tcp-port=13000 \
+	--p2p-udp-port=12000 \
+	--rpc-port=4000 \
+	--grpc-gateway-port=3500 \
+	--min-sync-peers=0 \
+	--genesis-state=$NODE_DIR/consensus/genesis.ssz \
+	--bootstrap-node= \
+	--interop-eth1data-votes \
+	--chain-config-file=$NODE_DIR/consensus/config.yml \
+	--contract-deployment-block=0 \
+	--chain-id=12345 \
+	--rpc-host=127.0.0.1 \
+	--grpc-gateway-host=127.0.0.1 \
+	--execution-endpoint=$NODE_DIR/geth.ipc \
+	--accept-terms-of-use \
+	--suggested-fee-recipient=0x123463a4b065722e99115d6c222f267d9cabb524 \
+	--minimum-peers-per-subnet=0 \
+	--enable-debug-rpc-endpoints \
+	--force-clear-db > /var/log/val-beacon.log &
+
+echo Sleeping 5 seconds before starting validator...
+sleep 5
+nohup prysm-validator --datadir=$NODE_DIR/consensus/validatordata \
+	--beacon-rpc-provider=127.0.0.1:4000 \
+	--accept-terms-of-use \
+	--interop-num-validators=64 \
+	--interop-start-index=0 \
+	--chain-config-file=$NODE_DIR/consensus/config.yml \
+	--force-clear-db > /var/log/val-validator.log &
+
+NODE_DIR=/rpc-data
+echo Running RPC node beacon
+nohup prysm-beacon --datadir=$NODE_DIR/consensus/beacondata \
+  --peer=/ip4/127.0.0.1/tcp/13000/p2p/16Uiu2HAmVLcAYZGTyHjgGReWL28tsqnPz8FExJZgjMvGcvToXfWH \
+  --p2p-host-ip=127.0.0.1 \
+  --p2p-local-ip=127.0.0.1 \
+  --p2p-tcp-port=13001 \
+  --p2p-udp-port=12001 \
+  --rpc-port=4001 \
+  --grpc-gateway-port=3501 \
+  --min-sync-peers=1 \
+  --genesis-state=$NODE_DIR/consensus/genesis.ssz \
+  --bootstrap-node= \
+  --interop-eth1data-votes \
+  --chain-config-file=$NODE_DIR/consensus/config.yml \
+  --contract-deployment-block=0 \
+  --chain-id=12345 \
+  --rpc-host=127.0.0.1 \
+  --grpc-gateway-host=127.0.0.1 \
+  --execution-endpoint=$NODE_DIR/geth.ipc \
+  --accept-terms-of-use \
+  --suggested-fee-recipient=0x123463a4b065722e99115d6c222f267d9cabb524 \
+  --minimum-peers-per-subnet=1 \
+  --enable-debug-rpc-endpoints \
+  --force-clear-db > /var/log/rpc-beacon.log &
+
+echo Running RPC node execution
+FHEVM_GO_INIT_CKS=1 \
+  FHEVM_GO_SKS_URL=http://127.0.0.1:8000/sks \
+  FHEVM_GO_PKS_URL=http://127.0.0.1:8000/pks \
+  FHEVM_GO_CKS_URL=http://127.0.0.1:8000/cks \
+  FORCE_TRANSIENT_STORAGE=true \
+  FHEVM_GO_KEYS_DIR=/usr/share/devnet-resources/fhevm-keys \
+  FHEVM_CIPHERTEXTS_DB=$NODE_DIR/fhevm_ciphertexts.sqlite \
+  FHEVM_CONTRACT_ADDRESS=$COPROCESSOR_CONTRACT_ADDRESS \
+  FHEVM_COPROCESSOR_PRIVATE_KEY_FILE=$NODE_DIR/coprocessor.key \
+  FORCE_TRANSIENT_STORAGE=true \
+    geth --datadir $NODE_DIR --port 30308 --http --http.addr 0.0.0.0 --http.port 8545 \
+    --bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
+    --authrpc.port 8553

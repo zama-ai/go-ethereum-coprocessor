@@ -1,7 +1,20 @@
 KMS_DEV_TAG = v0.3.3-pre-13
+PRYSM_VERSION = v5.0.3
 ROOT_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TEST_KEYS_PATH = ${ROOT_DIR}/fhevm-keys
 TEMP_KEY_GEN = ./.temp_keygen
+ifeq ($(shell uname),Darwin)
+HOST_OS = darwin
+else
+HOST_OS = linux
+endif
+ifeq ($(shell uname -m),arm64)
+HOST_ARCH = arm64
+else
+HOST_ARCH = amd64
+endif
+PRYSM_SUFFIX = $(HOST_OS)-$(HOST_ARCH)
+
 
 ${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys.bin:
 	# make sure to have a fresh dir for keys
@@ -19,16 +32,21 @@ ${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PA
 	# clean
 	rm -rf ${TEMP_KEY_GEN}
 
+# TODO: download different executables for linux
+prysm-beacon:
+	curl -L https://github.com/prysmaticlabs/prysm/releases/download/$(PRYSM_VERSION)/beacon-chain-$(PRYSM_VERSION)-$(PRYSM_SUFFIX) > prysm-beacon.tmp
+	chmod +x prysm-beacon.tmp
+	mv -f prysm-beacon.tmp prysm-beacon
+
+prysm-validator:
+	curl -L https://github.com/prysmaticlabs/prysm/releases/download/$(PRYSM_VERSION)/validator-$(PRYSM_VERSION)-$(PRYSM_SUFFIX) > prysm-validator.tmp
+	chmod +x prysm-validator.tmp
+	mv -f prysm-validator.tmp prysm-validator
+
 .PHONY: gen-keys
 gen-keys: ${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys.bin
 
 .PHONY: clean
 clean:
-	rm -rf node1
-	rm -rf ../node1
-	rm -rf node2
-	rm -rf ../node2
-	rm -rf node3
-	rm -rf ../node3
+	rm -rf node*
 	rm -rf ../bootnode
-	rm genesis.json
