@@ -15,7 +15,7 @@ make geth
 go build ./cmd/bootnode
 popd
 
-make gen-keys
+#make gen-keys
 
 # build with 'make geth' in root directory
 GETH=../build/bin/geth
