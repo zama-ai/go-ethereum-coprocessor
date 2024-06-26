@@ -1,8 +1,8 @@
-KMS_DEV_TAG = v0.3.3-pre-13
+KMS_DEV_TAG = 9b94bec
 PRYSM_VERSION = v5.0.3
 ROOT_DIR = $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 TEST_KEYS_PATH = ${ROOT_DIR}/fhevm-keys
-TEMP_KEY_GEN = ./.temp_keygen
+TEMP_KEY_GEN = .temp_keygen
 ifeq ($(shell uname),Darwin)
 HOST_OS = darwin
 else
@@ -16,23 +16,22 @@ endif
 PRYSM_SUFFIX = $(HOST_OS)-$(HOST_ARCH)
 
 
-${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys.bin:
+.PHONY: gen-keys
+gen-keys:
 	# make sure to have a fresh dir for keys
 	rm -rf ${TEMP_KEY_GEN}
 	mkdir ${TEMP_KEY_GEN}
 	# start a kms that will generate keys
-	docker run --rm -v ${ROOT_DIR}/${TEMP_KEY_GEN}:/keys ghcr.io/zama-ai/kms-dev:${KMS_DEV_TAG} /app/kms/bin/kms-gen /keys/
+	docker run --entrypoint=/bin/sh --rm -v $(shell pwd)/${TEMP_KEY_GEN}:/keys ghcr.io/zama-ai/kms-service-dev:${KMS_DEV_TAG} \
+		-c 'cd / && /app/kms/core/service/bin/kms-gen-keys centralized --param-path /app/kms/core/service/parameters/default_params.json --write-privkey'
 	# move keys
 	mkdir -p ${TEST_KEYS_PATH}
-	cp ${TEMP_KEY_GEN}/default-software-keys.bin ${TEST_KEYS_PATH}
-	cp ${TEMP_KEY_GEN}/cks.bin ${TEST_KEYS_PATH}/cks
-	cp ${TEMP_KEY_GEN}/cks.bin ${TEST_KEYS_PATH}/cks.bin
-	cp ${TEMP_KEY_GEN}/sks.bin ${TEST_KEYS_PATH}/sks
-	cp ${TEMP_KEY_GEN}/pks.bin ${TEST_KEYS_PATH}/pks
-	# clean
+	mv -f ${TEMP_KEY_GEN}/PRIV/FhePrivateKey/04a1aa8ba5e95fb4dc42e06add00b0c2ce3ea424 ${TEST_KEYS_PATH}/cks
+	mv -f ${TEMP_KEY_GEN}/PUB/ServerKey/04a1aa8ba5e95fb4dc42e06add00b0c2ce3ea424 ${TEST_KEYS_PATH}/sks
+	mv -f ${TEMP_KEY_GEN}/PUB/PublicKey/04a1aa8ba5e95fb4dc42e06add00b0c2ce3ea424 ${TEST_KEYS_PATH}/pks
+	# cleanup
 	rm -rf ${TEMP_KEY_GEN}
 
-# TODO: download different executables for linux
 prysm-beacon:
 	curl -L https://github.com/prysmaticlabs/prysm/releases/download/$(PRYSM_VERSION)/beacon-chain-$(PRYSM_VERSION)-$(PRYSM_SUFFIX) > prysm-beacon.tmp
 	chmod +x prysm-beacon.tmp
@@ -42,9 +41,6 @@ prysm-validator:
 	curl -L https://github.com/prysmaticlabs/prysm/releases/download/$(PRYSM_VERSION)/validator-$(PRYSM_VERSION)-$(PRYSM_SUFFIX) > prysm-validator.tmp
 	chmod +x prysm-validator.tmp
 	mv -f prysm-validator.tmp prysm-validator
-
-.PHONY: gen-keys
-gen-keys: ${TEST_KEYS_PATH}/cks ${TEST_KEYS_PATH}/pks ${TEST_KEYS_PATH}/sks ${TEST_KEYS_PATH}/default-software-keys.bin
 
 .PHONY: clean
 clean:

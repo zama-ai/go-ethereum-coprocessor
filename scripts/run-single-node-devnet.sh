@@ -108,6 +108,6 @@ FHEVM_GO_INIT_CKS=1 \
   FHEVM_CONTRACT_ADDRESS=$COPROCESSOR_CONTRACT_ADDRESS \
   FHEVM_COPROCESSOR_PRIVATE_KEY_FILE=$NODE_DIR/coprocessor.key \
   FORCE_TRANSIENT_STORAGE=true \
-    geth --datadir $NODE_DIR --port 30308 --http --http.addr 0.0.0.0 --http.port 8545 \
+    geth --datadir $NODE_DIR --port 30308 --http --http.corsdomain='*' --http.addr 0.0.0.0 --http.port 8545 \
     --bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
     --authrpc.port 8553
