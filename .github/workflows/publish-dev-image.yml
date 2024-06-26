@@ -9,27 +9,31 @@ on:
         type: string
         required: false
       ref_to_geth:
-        description: 'Branch, tag or commit SHA1 to checkout go-ethereum'
+        description: 'Branch, tag or commit SHA1 to checkout go-ethereum-coprocessor'
         required: true
-        default: "main"
+        default: "master"
         type: string
 
 env:
-  DOCKER_IMAGE: ghcr.io/zama-ai/geth-coproc-dev-node
+  DOCKER_IMAGE: ghcr.io/zama-ai/go-coprocessor-devnode
 
 jobs:
   push_to_registry:
     name: Push Docker image to GitHub Container Registry
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
       # space wasn't enough at some point
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
 
       - name: Check out repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
+          token: ${{ secrets.SUBMODULES_CHECKOUT_TOKEN }}
           ref: ${{ inputs.ref_to_geth }}
+          lfs: true
           submodules: recursive
 
       - name: Check OS
