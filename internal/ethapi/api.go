@@ -757,17 +757,12 @@ func (s *BlockChainAPI) AddUserCiphertext(ctx context.Context, payload string, c
 	return res, nil
 }
 
-func (s *BlockChainAPI) GetCiphertextByHandle(ctx context.Context, payload *hexutil.Big) (map[string]interface{}, error) {
+func (s *BlockChainAPI) GetCiphertextByHandle(ctx context.Context, bytes *hexutil.Bytes) (map[string]interface{}, error) {
 	if vm.FhevmCoprocessor == nil {
 		return nil, errors.New("fhevm executor is disabled on this node")
 	}
 
-	bytes, err := hexutil.Decode(payload.String())
-	if err != nil {
-		return nil, err
-	}
-
-	theType, ct, err := vm.FhevmCoprocessor.GetStore().GetCiphertext(bytes)
+	theType, ct, err := vm.FhevmCoprocessor.GetStore().GetCiphertext(*bytes)
 	if err != nil {
 		return nil, err
 	}
