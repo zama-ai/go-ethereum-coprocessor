@@ -221,7 +221,10 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			if isValidCoprocessorSegment {
 				if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
 					log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
-					coprocErr := in.evm.CoprocessorSession.Execute(input, res)
+					randAddress := common.HexToHash("0xa436a06f0efce5ea38c956a21e24202a59b3b746d48a23fb52b4a5bc33fe3e00")
+					randCounterValue := in.evm.StateDB.GetState(in.evm.CoprocessorSession.ContractAddress(), randAddress)
+					ed := fhevm.ExtraData{RandomCounter: randCounterValue}
+					coprocErr := in.evm.CoprocessorSession.Execute(input, ed, res)
 					if coprocErr != nil {
 						log.Error("Error executing coprocessor payload", "error", coprocErr)
 					}

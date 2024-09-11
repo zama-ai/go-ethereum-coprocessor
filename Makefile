@@ -9,13 +9,10 @@ GO ?= latest
 GORUN = go run
 
 #? geth: Build geth
-geth: fhevm-go-coproc
+geth:
 	$(GORUN) build/ci.go install ./cmd/geth
 	@echo "Done building."
 	@echo "Run \"$(GOBIN)/geth\" to launch geth."
-
-fhevm-go-coproc:
-	cd fhevm-go-coproc && $(MAKE) build
 
 #? all: Build all packages and executables
 all:
