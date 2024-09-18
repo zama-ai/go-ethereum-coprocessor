@@ -1,15 +1,16 @@
 ARG ZBC_VERSION=latest
 FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION} AS build-env
 
+ARG TARGETARCH
 ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-arm64 /tmp
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-arm64 /tmp
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-arm64 /tmp
-RUN mv /tmp/beacon-chain-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-beacon && chmod +x /usr/bin/prysm-beacon
-RUN mv /tmp/validator-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-validator && chmod +x /usr/bin/prysm-validator
-RUN mv /tmp/prysmctl-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-ctl && chmod +x /usr/bin/prysm-ctl
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
+RUN mv /tmp/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon && chmod +x /usr/bin/prysm-beacon
+RUN mv /tmp/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator && chmod +x /usr/bin/prysm-validator
+RUN mv /tmp/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl && chmod +x /usr/bin/prysm-ctl
 
 ADD . /src/geth
 WORKDIR /src/geth
