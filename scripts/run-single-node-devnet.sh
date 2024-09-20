@@ -104,4 +104,8 @@ echo Running RPC node execution
   FHEVM_COPROCESSOR_API_KEY=$FHEVM_COPROCESSOR_API_KEY \
     geth --datadir $NODE_DIR --port 30308 --http --http.corsdomain='*' --http.addr 0.0.0.0 --http.port 8545 \
     --bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
-    --authrpc.port 8553
+    --authrpc.port 8553 \
+    --ws \
+    --ws.addr 0.0.0.0 \
+    --ws.port 8546 \
+    --ws.origins '*'
