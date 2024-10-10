@@ -1,21 +1,20 @@
 ARG ZBC_VERSION=latest
 FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION} AS build-env
 
+ARG TARGETARCH
 ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-arm64 /tmp
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-arm64 /tmp
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-arm64 /tmp
-RUN mv /tmp/beacon-chain-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-beacon && chmod +x /usr/bin/prysm-beacon
-RUN mv /tmp/validator-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-validator && chmod +x /usr/bin/prysm-validator
-RUN mv /tmp/prysmctl-${PRYSM_VERSION}-linux-arm64 /usr/bin/prysm-ctl && chmod +x /usr/bin/prysm-ctl
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
+RUN mv /tmp/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon && chmod +x /usr/bin/prysm-beacon
+RUN mv /tmp/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator && chmod +x /usr/bin/prysm-validator
+RUN mv /tmp/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl && chmod +x /usr/bin/prysm-ctl
 
 ADD . /src/geth
 WORKDIR /src/geth
 
-RUN apt-get install -y git-lfs
-RUN cd fhevm-go-coproc && make build
 RUN go build ./cmd/bootnode
 RUN make geth
 
@@ -29,11 +28,7 @@ COPY --from=build-env /src/geth/bootnode /usr/bin/
 COPY --from=build-env /src/geth/build/bin/geth /usr/bin/
 COPY --from=build-env /src/geth/local-testnet/prep/execution/genesis.json /usr/share/devnet-resources/genesis.json
 COPY --from=build-env /src/geth/local-testnet/prep/boot.key /usr/share/devnet-resources/boot.key
-COPY --from=build-env /src/geth/local-testnet/fhevm-keys/cks /usr/share/devnet-resources/fhevm-keys/cks
-COPY --from=build-env /src/geth/local-testnet/fhevm-keys/pks /usr/share/devnet-resources/fhevm-keys/pks
-COPY --from=build-env /src/geth/local-testnet/fhevm-keys/sks /usr/share/devnet-resources/fhevm-keys/sks
 COPY --from=build-env /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
-COPY --from=build-env /src/geth/local-testnet/prep/coprocessor.key /rpc-data/
 COPY --from=build-env /src/geth/local-testnet/prep/consensus/config.yml /usr/share/devnet-resources/consensus-config.yml
 COPY --from=build-env /src/geth/local-testnet/prep/consensus/validator-beacon-static-network-keys /val-data/consensus/beacondata/network-keys
 COPY --from=build-env /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
