@@ -18,6 +18,7 @@ package vm
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -43,6 +44,9 @@ type ScopeContext struct {
 	Stack    *Stack
 	Contract *Contract
 }
+
+// A constant that is also used in TFHEExecutor.sol to store the counter.
+var randCounterLocation = common.HexToHash("0xa436a06f0efce5ea38c956a21e24202a59b3b746d48a23fb52b4a5bc33fe3e00")
 
 // MemoryData returns the underlying memory slice. Callers must not modify the contents
 // of the returned data.
@@ -221,9 +225,31 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 			if isValidCoprocessorSegment {
 				if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
 					log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
-					randAddress := common.HexToHash("0xa436a06f0efce5ea38c956a21e24202a59b3b746d48a23fb52b4a5bc33fe3e00")
-					randCounterValue := in.evm.StateDB.GetState(in.evm.CoprocessorSession.ContractAddress(), randAddress)
-					ed := fhevm.ExtraData{RandomCounter: randCounterValue}
+					randCounterValue := in.evm.StateDB.GetState(in.evm.CoprocessorSession.ContractAddress(), randCounterLocation)
+
+					// Compute the FHE rand seed as packed encoding of:
+					// keccak256(randCounter || aclContractAddress || block.chainid || blockhash(block.number - 1)) || block.timestamp)
+					// This means we want the counter, the chain ID, the block hash and the timestamp to be 32 bytes. The ACL address is 20 bytes.
+					hasher := crypto.NewKeccakState()
+					hasher.Write(randCounterValue[:])
+					hasher.Write(in.evm.CoprocessorSession.AclContractAddress().Bytes())
+					var chainId [32]byte
+					in.evm.chainConfig.ChainID.FillBytes(chainId[:])
+					hasher.Write(chainId[:])
+					prevBlockNum := in.evm.Context.BlockNumber.Uint64()
+					if prevBlockNum != 0 {
+						prevBlockNum = prevBlockNum - 1
+					}
+					prevBlockHash := in.evm.Context.GetHash(prevBlockNum)
+					hasher.Write(prevBlockHash[:])
+					blockTimestampInt := big.NewInt(int64(in.evm.Context.Time))
+					var blockTimestamp [32]byte
+					blockTimestampInt.FillBytes(blockTimestamp[:])
+					hasher.Write(blockTimestamp[:])
+					var seed [32]byte
+					hasher.Read(seed[:])
+
+					ed := fhevm.ExtraData{FheRandSeed: seed}
 					coprocErr := in.evm.CoprocessorSession.Execute(input, ed, res)
 					if coprocErr != nil {
 						log.Error("Error executing coprocessor payload", "error", coprocErr)
