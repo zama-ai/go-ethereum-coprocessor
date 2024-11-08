@@ -72,6 +72,23 @@ on:
         value: "${{ jobs.build-and-push-docker.outputs.image_name }}"
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: ${{ inputs.working-directory }}/${{ inputs.docker-file }}
+          failure-threshold: none
+
+      - name: Run hadolint dev
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        if: ${{ inputs.generate-dev-image }}
+        with:
+          dockerfile: ${{ inputs.working-directory }}/${{ inputs.docker-file-dev }}
+          failure-threshold: none
+
   build-and-push-docker:
     runs-on: ${{ inputs.runs_on }}
     outputs:
@@ -86,17 +103,6 @@ jobs:
           ref: ${{ inputs.ref_to_geth }}
           lfs: true
           submodules: recursive
-
-      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
-        with:
-          dockerfile: ${{ inputs.working-directory }}/${{ inputs.docker-file }}
-          failure-threshold: none
-
-      - uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
-        if: ${{ inputs.generate-dev-image }}
-        with:
-          dockerfile: ${{ inputs.working-directory }}/${{ inputs.docker-file-dev }}
-          failure-threshold: none
 
       - name: Set up SSH
         if: inputs.arm-build
