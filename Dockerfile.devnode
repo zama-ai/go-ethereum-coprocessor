@@ -1,44 +1,46 @@
 ARG ZBC_VERSION=latest
-FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION} AS build-env
+FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION} AS build
 
+# Use ARG values for tool versions
 ARG TARGETARCH
 ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /tmp
-RUN mv /tmp/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon && chmod +x /usr/bin/prysm-beacon
-RUN mv /tmp/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator && chmod +x /usr/bin/prysm-validator
-RUN mv /tmp/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl && chmod +x /usr/bin/prysm-ctl
+# Download and set up Prysm binaries in one command to reduce layers
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator
+ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl
+RUN chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
 
-ADD . /src/geth
+# Copy and build the Geth source code
+COPY . /src/geth
 WORKDIR /src/geth
+RUN go build ./cmd/bootnode && make geth
 
-RUN go build ./cmd/bootnode
-RUN make geth
-
-ARG ZBC_VERSION=latest
+# Set up final image
 FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION}
 
-RUN mkdir /val-data /rpc-data
+# Create necessary directories
+RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata/network-keys
 
-COPY --from=build-env /src/ /src/
-COPY --from=build-env /src/geth/bootnode /usr/bin/
-COPY --from=build-env /src/geth/build/bin/geth /usr/bin/
-COPY --from=build-env /src/geth/local-testnet/prep/execution/genesis.json /usr/share/devnet-resources/genesis.json
-COPY --from=build-env /src/geth/local-testnet/prep/boot.key /usr/share/devnet-resources/boot.key
-COPY --from=build-env /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
-COPY --from=build-env /src/geth/local-testnet/prep/consensus/config.yml /usr/share/devnet-resources/consensus-config.yml
-COPY --from=build-env /src/geth/local-testnet/prep/consensus/validator-beacon-static-network-keys /val-data/consensus/beacondata/network-keys
-COPY --from=build-env /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
-COPY --from=build-env /src/geth/scripts/faucet.sh /usr/bin/faucet
-COPY --from=build-env /usr/bin/prysm-beacon /usr/bin/
-COPY --from=build-env /usr/bin/prysm-validator /usr/bin/
-COPY --from=build-env /usr/bin/prysm-ctl /usr/bin/
+# Copy built binaries and scripts from build
+COPY --from=build /src/geth/bootnode /usr/bin/
+COPY --from=build /src/geth/build/bin/geth /usr/bin/
+COPY --from=build /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl /usr/bin/
+
+# Copy config files and scripts
+COPY --from=build /src/geth/local-testnet/prep/execution/genesis.json /usr/share/devnet-resources/
+COPY --from=build /src/geth/local-testnet/prep/boot.key /usr/share/devnet-resources/
+COPY --from=build /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
+COPY --from=build /src/geth/local-testnet/prep/consensus/config.yml /usr/share/devnet-resources/consensus-config.yml
+COPY --from=build /src/geth/local-testnet/prep/consensus/validator-beacon-static-network-keys /val-data/consensus/beacondata/network-keys
+COPY --from=build /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
+COPY --from=build /src/geth/scripts/faucet.sh /usr/bin/faucet
 
 WORKDIR /
 
+# Set environment variable
 ENV VALIDATOR_ACCOUNT=0x1181a1fb7b6de97d4cb06da82a0037df1ffe32d0
 
+# Define entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

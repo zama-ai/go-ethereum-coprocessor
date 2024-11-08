@@ -1,28 +1,34 @@
-# Support setting various labels on the final image
+# Specify build arguments for metadata
 ARG COMMIT=""
 ARG VERSION=""
 ARG BUILDNUM=""
 
 # Build Geth in a stock Go builder container
-FROM golang:1.22-alpine as builder
+FROM golang:1.22-alpine AS builder
 
+# Install dependencies
 RUN apk add --no-cache gcc musl-dev linux-headers git
 
-ADD . /go-ethereum
-RUN cd /go-ethereum && go run build/ci.go install -static ./cmd/geth
+WORKDIR /go-ethereum
 
-# Pull Geth into a second stage deploy alpine container
-FROM alpine:latest
+# Copy codebase and build Geth
+COPY . .
+RUN go run build/ci.go install -static ./cmd/geth
 
+# Final Stage
+FROM alpine:3.20.3
+
+# Install ca-certificates
 RUN apk add --no-cache ca-certificates
+
+# Copy the Geth binary from the builder stage
 COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
 
+# Expose required ports
 EXPOSE 8545 8546 30303 30303/udp
+
+# Set entrypoint
 ENTRYPOINT ["geth"]
 
-# Add some metadata labels to help programmatic image consumption
-ARG COMMIT=""
-ARG VERSION=""
-ARG BUILDNUM=""
-
-LABEL commit="$COMMIT" version="$VERSION" buildnum="$BUILDNUM"
+# Apply metadata labels
+LABEL commit="${COMMIT}" version="${VERSION}" buildnum="${BUILDNUM}"
