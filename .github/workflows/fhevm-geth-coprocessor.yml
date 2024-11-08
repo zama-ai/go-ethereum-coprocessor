@@ -34,6 +34,7 @@ jobs:
     secrets:
       BLOCKCHAIN_ACTIONS_TOKEN: ${{ secrets.BLOCKCHAIN_ACTIONS_TOKEN }}
       GRAVITON_BUILDER_SSH_PRIVATE_KEY: ${{ secrets.GRAVITON_BUILDER_SSH_PRIVATE_KEY }}
+      SUBMODULES_CHECKOUT_TOKEN: ${{ secrets.SUBMODULES_CHECKOUT_TOKEN }}
 
   done:
     runs-on: ubuntu-latest
