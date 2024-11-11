@@ -72,7 +72,7 @@ on:
         value: "${{ jobs.build-and-push-docker.outputs.image_name }}"
 
 jobs:
-  lint:
+  dockerfile-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -189,3 +189,6 @@ jobs:
       - name: Export image name
         id: export-image
         run: echo "image=ghcr.io/zama-ai/${{inputs.image-name}}:${{env.DOCKER_TAG_IMAGE}}" >> "${GITHUB_OUTPUT}"
+
+    needs:
+      - dockerfile-lint

@@ -6,7 +6,7 @@ ARG TARGETARCH
 ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
-# Download and set up Prysm binaries in one command to reduce layers
+# Download and set up Prysm binaries
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl
