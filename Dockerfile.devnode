@@ -15,7 +15,7 @@ RUN chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
 # Copy and build the Geth source code
 COPY . /src/geth
 WORKDIR /src/geth
-RUN go build ./cmd/bootnode && make geth
+RUN go build -buildvcs=false ./cmd/bootnode && make geth
 
 # Set up final image
 FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION}
