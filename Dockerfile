@@ -8,7 +8,7 @@ WORKDIR /go-ethereum
 
 # Copy codebase and build Geth
 COPY . .
-RUN go run build/ci.go install -static ./cmd/geth
+RUN go run -buildvcs=false build/ci.go install -static ./cmd/geth
 
 # Final Stage
 FROM alpine:3.20.3
