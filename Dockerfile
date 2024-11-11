@@ -1,10 +1,5 @@
-# Specify build arguments for metadata
-ARG COMMIT=""
-ARG VERSION=""
-ARG BUILDNUM=""
-
 # Build Geth in a stock Go builder container
-FROM golang:1.22-alpine AS builder
+FROM golang:1.22-alpine AS build
 
 # Install dependencies
 RUN apk add --no-cache gcc musl-dev linux-headers git
@@ -22,13 +17,10 @@ FROM alpine:3.20.3
 RUN apk add --no-cache ca-certificates
 
 # Copy the Geth binary from the builder stage
-COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
+COPY --from=build /go-ethereum/build/bin/geth /usr/local/bin/
 
 # Expose required ports
 EXPOSE 8545 8546 30303 30303/udp
 
 # Set entrypoint
 ENTRYPOINT ["geth"]
-
-# Apply metadata labels
-LABEL commit="${COMMIT}" version="${VERSION}" buildnum="${BUILDNUM}"

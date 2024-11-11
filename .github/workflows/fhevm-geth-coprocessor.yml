@@ -22,7 +22,8 @@ jobs:
       packages: "write"
     with:
       working-directory: "."
-      push_image: ${{ github.event_name == 'release' || github.ref_name == 'main' }}
+      # ${{ github.event_name == 'release' || github.ref_name == 'main' }}
+      push_image: true
       image-name: "geth-coprocessor"
       image-dev-name: "geth-coprocessor-devnode"
       generate-dev-image: true
