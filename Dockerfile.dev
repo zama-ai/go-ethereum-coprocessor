@@ -2,19 +2,18 @@ FROM golang:1.22-alpine AS build
 
 # Use ARG values for tool versions
 ARG TARGETARCH
-ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
 # Install dependencies
 RUN apk update &&\
     apk add --no-cache \
-    gcc g++ make musl-dev linux-headers git git-lfs
+    libc6-compat gcc make musl-dev linux-headers git git-lfs curl
 
 # Download and set up Prysm binaries
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator
-ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl
-RUN chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
+RUN curl -L https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} -o /usr/bin/prysm-beacon &&\
+    curl -L https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} -o /usr/bin/prysm-validator &&\
+    curl -L https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} -o /usr/bin/prysm-ctl &&\
+    chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
 
 WORKDIR /go-ethereum
 
