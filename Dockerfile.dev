@@ -1,5 +1,4 @@
-ARG ZBC_VERSION=latest
-FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION} AS build
+FROM golang:1.22-alpine AS build
 
 # Use ARG values for tool versions
 ARG TARGETARCH
@@ -7,8 +6,9 @@ ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
 # Install dependencies
-RUN apt-get update &&\
-    apt-get install -y --no-install-recommends git git-lfs
+RUN apk update &&\
+    apk add --no-cache \
+    gcc g++ make musl-dev linux-headers git git-lfs
 
 # Download and set up Prysm binaries
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon
@@ -16,31 +16,31 @@ ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/va
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl
 RUN chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
 
-WORKDIR /src/geth
+WORKDIR /go-ethereum
 
 # Copy and build the Geth source code
 COPY . .
 RUN go build ./cmd/bootnode && make geth
 
 # Set up final image
-FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION}
+FROM alpine:3.20.3
 
 # Create necessary directories
 RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata/network-keys
 
 # Copy built binaries and scripts from build
-COPY --from=build /src/geth/bootnode /usr/bin/
-COPY --from=build /src/geth/build/bin/geth /usr/bin/
+COPY --from=build /go-ethereum/bootnode /usr/bin/
+COPY --from=build /go-ethereum/build/bin/geth /usr/bin/
 COPY --from=build /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl /usr/bin/
 
 # Copy config files and scripts
-COPY --from=build /src/geth/local-testnet/prep/execution/genesis.json /usr/share/devnet-resources/
-COPY --from=build /src/geth/local-testnet/prep/boot.key /usr/share/devnet-resources/
-COPY --from=build /src/geth/local-testnet/prep/node1/keystore/ /val-data/keystore/
-COPY --from=build /src/geth/local-testnet/prep/consensus/config.yml /usr/share/devnet-resources/consensus-config.yml
-COPY --from=build /src/geth/local-testnet/prep/consensus/validator-beacon-static-network-keys /val-data/consensus/beacondata/network-keys
-COPY --from=build /src/geth/scripts/run-single-node-devnet.sh /entrypoint.sh
-COPY --from=build /src/geth/scripts/faucet.sh /usr/bin/faucet
+COPY --from=build /go-ethereum/local-testnet/prep/execution/genesis.json /usr/share/devnet-resources/
+COPY --from=build /go-ethereum/local-testnet/prep/boot.key /usr/share/devnet-resources/
+COPY --from=build /go-ethereum/local-testnet/prep/node1/keystore/ /val-data/keystore/
+COPY --from=build /go-ethereum/local-testnet/prep/consensus/config.yml /usr/share/devnet-resources/consensus-config.yml
+COPY --from=build /go-ethereum/local-testnet/prep/consensus/validator-beacon-static-network-keys /val-data/consensus/beacondata/network-keys
+COPY --from=build /go-ethereum/scripts/run-single-node-devnet.sh /entrypoint.sh
+COPY --from=build /go-ethereum/scripts/faucet.sh /usr/bin/faucet
 
 WORKDIR /
 

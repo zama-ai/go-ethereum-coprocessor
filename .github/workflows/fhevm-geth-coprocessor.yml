@@ -23,10 +23,13 @@ jobs:
     with:
       working-directory: "."
       # ${{ github.event_name == 'release' || github.ref_name == 'main' }}
-      push_image: true
-      image-name: "go-coprocessor-devnode"
-      generate-dev-image: false
-      docker-file: "Dockerfile.devnode"
+      push_image: false
+      image-name: "go-ethereum-coprocessor"
+      image-dev-name: "go-ethereum-coprocessor-dev"
+      generate-dev-image: true
+      docker-file: "Dockerfile"
+      docker-file-dev: "Dockerfile.dev"
+      image-dev-description: "geth coprocessor dev image"
       arm-build: true
 
     secrets:
