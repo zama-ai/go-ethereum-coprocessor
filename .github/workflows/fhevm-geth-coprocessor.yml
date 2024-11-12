@@ -23,7 +23,7 @@ jobs:
     with:
       working-directory: "."
       # ${{ github.event_name == 'release' || github.ref_name == 'main' }}
-      push_image: false
+      push_image: true
       image-name: "go-ethereum-coprocessor"
       image-dev-name: "go-ethereum-coprocessor-dev"
       generate-dev-image: true
