@@ -24,12 +24,9 @@ jobs:
       working-directory: "."
       # ${{ github.event_name == 'release' || github.ref_name == 'main' }}
       push_image: true
-      image-name: "geth-coprocessor"
-      image-dev-name: "geth-coprocessor-devnode"
+      image-name: "geth-coprocessor-devnode"
       generate-dev-image: false
-      docker-file: "Dockerfile"
-      docker-file-dev: "Dockerfile.devnode"
-      image-dev-description: "geth coprocessor devnode image"
+      docker-file: "Dockerfile.devnode"
       arm-build: true
 
     secrets:

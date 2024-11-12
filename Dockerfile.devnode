@@ -6,16 +6,21 @@ ARG TARGETARCH
 ARG GETH_NODE_VERSION=v1.14.3
 ARG PRYSM_VERSION=v5.0.3
 
+# Install dependencies
+RUN apt-get update &&\
+    apt-get install -y git git-lfs
+
 # Download and set up Prysm binaries
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-validator
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-ctl
 RUN chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
 
-# Copy and build the Geth source code
-COPY . /src/geth
 WORKDIR /src/geth
-RUN go build -buildvcs=false ./cmd/bootnode && make geth
+
+# Copy and build the Geth source code
+COPY . .
+RUN go build ./cmd/bootnode && make geth
 
 # Set up final image
 FROM ghcr.io/zama-ai/zama-zbc-build:${ZBC_VERSION}
