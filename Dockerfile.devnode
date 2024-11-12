@@ -8,7 +8,7 @@ ARG PRYSM_VERSION=v5.0.3
 
 # Install dependencies
 RUN apt-get update &&\
-    apt-get install -y git git-lfs
+    apt-get install -y --no-install-recommends git git-lfs
 
 # Download and set up Prysm binaries
 ADD https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} /usr/bin/prysm-beacon
