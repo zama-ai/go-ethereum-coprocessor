@@ -24,6 +24,11 @@ RUN go build ./cmd/bootnode && make geth
 # Set up final image
 FROM alpine:3.20.3
 
+# Install dependencies
+RUN apk update &&\
+    apk add --no-cache \
+    libc6-compat
+
 # Create necessary directories
 RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata/network-keys
 
