@@ -1,0 +1,47 @@
+name: "fhEVM Geth Coprocessor Docker Image"
+
+on:
+  push:
+    branches:
+      - main
+      - amina/geth-ci-workflows
+  release:
+    types:
+      - published
+      - prereleased
+
+concurrency:
+  group: geth-coprocessor-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  docker-geth-coprocessor:
+    uses: ./.github/workflows/common-docker.yml
+    permissions:
+      contents: "read"
+      id-token: "write"
+      packages: "write"
+    with:
+      working-directory: "."
+      push_image: ${{ github.event_name == 'release' || github.ref_name == 'main' }}
+      image-name: "go-ethereum-coprocessor"
+      image-dev-name: "go-ethereum-coprocessor-dev"
+      generate-dev-image: true
+      docker-file: "Dockerfile"
+      docker-file-dev: "Dockerfile.dev"
+      image-dev-description: "geth coprocessor dev image"
+      arm-build: true
+
+    secrets:
+      BLOCKCHAIN_ACTIONS_TOKEN: ${{ secrets.BLOCKCHAIN_ACTIONS_TOKEN }}
+      GRAVITON_BUILDER_SSH_PRIVATE_KEY: ${{ secrets.GRAVITON_BUILDER_SSH_PRIVATE_KEY }}
+      SUBMODULES_CHECKOUT_TOKEN: ${{ secrets.SUBMODULES_CHECKOUT_TOKEN }}
+
+  done:
+    runs-on: ubuntu-latest
+    name: Pipeline Done
+    steps:
+      - name: Success
+        run: echo Pipeline Done
+    needs:
+      - docker-geth-coprocessor

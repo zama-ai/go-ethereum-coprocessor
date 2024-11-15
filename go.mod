@@ -151,4 +151,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/zama-ai/fhevm-go-coproc v0.0.1 => ./fhevm-go-coproc
+replace github.com/zama-ai/fhevm-go-coproc v0.0.1 => ./libs/fhevm-backend/fhevm-engine/fhevm-go-coproc

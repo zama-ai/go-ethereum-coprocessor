@@ -1,0 +1,55 @@
+FROM golang:1.22-alpine AS build
+
+# Use ARG values for tool versions
+ARG TARGETARCH
+ARG PRYSM_VERSION=v5.0.3
+
+# Install dependencies
+RUN apk update &&\
+    apk add --no-cache \
+    libc6-compat gcc make musl-dev linux-headers git git-lfs curl
+
+# Download and set up Prysm binaries
+RUN curl -L https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/beacon-chain-${PRYSM_VERSION}-linux-${TARGETARCH} -o /usr/bin/prysm-beacon &&\
+    curl -L https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/validator-${PRYSM_VERSION}-linux-${TARGETARCH} -o /usr/bin/prysm-validator &&\
+    curl -L https://github.com/prysmaticlabs/prysm/releases/download/${PRYSM_VERSION}/prysmctl-${PRYSM_VERSION}-linux-${TARGETARCH} -o /usr/bin/prysm-ctl &&\
+    chmod +x /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl
+
+WORKDIR /go-ethereum
+
+# Copy and build the Geth source code
+COPY . .
+RUN go build ./cmd/bootnode && make geth
+
+# Set up final image
+FROM alpine:3.20.3
+
+# Install dependencies
+RUN apk update &&\
+    apk add --no-cache \
+    libc6-compat
+
+# Create necessary directories
+RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata/network-keys
+
+# Copy built binaries and scripts from build
+COPY --from=build /go-ethereum/bootnode /usr/bin/
+COPY --from=build /go-ethereum/build/bin/geth /usr/bin/
+COPY --from=build /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl /usr/bin/
+
+# Copy config files and scripts
+COPY --from=build /go-ethereum/local-testnet/prep/execution/genesis.json /usr/share/devnet-resources/
+COPY --from=build /go-ethereum/local-testnet/prep/boot.key /usr/share/devnet-resources/
+COPY --from=build /go-ethereum/local-testnet/prep/node1/keystore/ /val-data/keystore/
+COPY --from=build /go-ethereum/local-testnet/prep/consensus/config.yml /usr/share/devnet-resources/consensus-config.yml
+COPY --from=build /go-ethereum/local-testnet/prep/consensus/validator-beacon-static-network-keys /val-data/consensus/beacondata/network-keys
+COPY --from=build /go-ethereum/scripts/run-single-node-devnet.sh /entrypoint.sh
+COPY --from=build /go-ethereum/scripts/faucet.sh /usr/bin/faucet
+
+WORKDIR /
+
+# Set environment variable
+ENV VALIDATOR_ACCOUNT=0x1181a1fb7b6de97d4cb06da82a0037df1ffe32d0
+
+# Define entrypoint
+ENTRYPOINT ["/entrypoint.sh"]
