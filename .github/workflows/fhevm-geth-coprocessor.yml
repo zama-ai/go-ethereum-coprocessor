@@ -8,6 +8,7 @@ on:
   release:
     types:
       - published
+      - prereleased
 
 concurrency:
   group: geth-coprocessor-${{ github.ref_name }}
@@ -22,8 +23,7 @@ jobs:
       packages: "write"
     with:
       working-directory: "."
-      # ${{ github.event_name == 'release' || github.ref_name == 'main' }}
-      push_image: true
+      push_image: ${{ github.event_name == 'release' || github.ref_name == 'main' }}
       image-name: "go-ethereum-coprocessor"
       image-dev-name: "go-ethereum-coprocessor-dev"
       generate-dev-image: true
