@@ -3,8 +3,7 @@ name: "fhEVM Geth Coprocessor Docker Image"
 on:
   push:
     branches:
-      - main
-      - amina/geth-ci-workflows
+      - master
   release:
     types:
       - published
