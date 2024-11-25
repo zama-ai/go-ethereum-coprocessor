@@ -12,6 +12,7 @@ https://pkg.go.dev/badge/github.com/ethereum/go-ethereum
 Automated builds are available for stable releases and the unstable master branch. Binary
 archives are published at https://geth.ethereum.org/downloads/.
 
+Based on geth **v1.14.3 stable**.
 
 ## Run the local testnet with coprocessor
 
