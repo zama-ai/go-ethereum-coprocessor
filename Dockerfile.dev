@@ -30,7 +30,7 @@ RUN apk update &&\
     libc6-compat
 
 # Create necessary directories
-RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata/network-keys
+RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata
 
 # Copy built binaries and scripts from build
 COPY --from=build /go-ethereum/bootnode /usr/bin/
