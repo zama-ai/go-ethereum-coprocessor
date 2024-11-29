@@ -66,7 +66,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tyler-smith/go-bip39 v1.1.0
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/zama-ai/fhevm-go-coproc v0.0.1
+	github.com/zama-ai/fhevm-go-native v0.0.1
 	go.uber.org/automaxprocs v1.5.2
 	golang.org/x/crypto v0.26.0
 	golang.org/x/sync v0.8.0
@@ -151,4 +151,4 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-replace github.com/zama-ai/fhevm-go-coproc v0.0.1 => ./libs/fhevm-backend/fhevm-engine/fhevm-go-coproc
+replace github.com/zama-ai/fhevm-go-native v0.0.1 => ./libs/fhevm-backend/fhevm-engine/fhevm-go-native

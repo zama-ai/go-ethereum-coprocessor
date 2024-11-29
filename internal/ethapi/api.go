@@ -28,6 +28,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/holiman/uint256"
 	"github.com/tyler-smith/go-bip39"
+	"github.com/zama-ai/fhevm-go-native/fhevm"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -962,6 +963,26 @@ func (s *BlockChainAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rpc.
 	return result, nil
 }
 
+func (s *BlockChainAPI) GetCiphertext(ctx context.Context, handle common.Hash) (hexutil.Bytes, error) {
+	currentBlockNumber := s.b.CurrentBlock().Number.Uint64()
+	state, _, err := s.b.StateAndHeaderByNumber(ctx, rpc.BlockNumber(currentBlockNumber))
+	if err != nil {
+		// When the block doesn't exist, the RPC method should return JSON null
+		// as per specification.
+		return nil, errors.New("should be impossible, we can't get current state")
+	}
+
+	// TODO: storage address hardcoded, make customizable
+	storageAddress := common.HexToAddress("0x0000000000000000000000000000000000000070")
+	result := fhevm.ReadBytesToAddress(state, storageAddress, handle)
+
+	// TODO: remove after we're sure that ciphertexts we store are same
+	checksum := crypto.Keccak256(result)
+	log.Info("Retrieved ciphertext from rpc", "handle", common.Bytes2Hex(handle[:]), "checksum", common.Bytes2Hex(checksum))
+
+	return result, nil
+}
+
 // OverrideAccount indicates the overriding fields of account during the execution
 // of a message call.
 // Note, state and stateDiff can't be specified at the same time. If state is
@@ -1119,7 +1140,9 @@ func doCall(ctx context.Context, b Backend, args TransactionArgs, state *state.S
 		return nil, err
 	}
 	msg := args.ToMessage(blockCtx.BaseFee)
-	evm := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, &blockCtx)
+	blockNumber := header.Number.Int64()
+	fhevmSession := vm.FhevmExecutor.CreateSession(blockNumber)
+	evm := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true, FhevmSession: fhevmSession}, &blockCtx)
 
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)

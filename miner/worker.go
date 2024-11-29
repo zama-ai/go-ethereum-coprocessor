@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/zama-ai/fhevm-go-native/fhevm"
 )
 
 var (
@@ -45,11 +46,12 @@ var (
 // environment is the worker's current environment and holds all
 // information of the sealing block generation.
 type environment struct {
-	signer   types.Signer
-	state    *state.StateDB // apply state changes here
-	tcount   int            // tx count in cycle
-	gasPool  *core.GasPool  // available gas used to pack transactions
-	coinbase common.Address
+	signer       types.Signer
+	state        *state.StateDB // apply state changes here
+	tcount       int            // tx count in cycle
+	gasPool      *core.GasPool  // available gas used to pack transactions
+	coinbase     common.Address
+	fhevmSession fhevm.ExecutorSession
 
 	header   *types.Header
 	txs      []*types.Transaction
@@ -106,7 +108,8 @@ func (miner *Miner) generateWork(params *generateParams) *newPayloadResult {
 		}
 	}
 	body := types.Body{Transactions: work.txs, Withdrawals: params.withdrawals}
-	block, err := miner.engine.FinalizeAndAssemble(miner.chain, work.header, work.state, &body, work.receipts)
+	// we're no longer mining
+	block, err := miner.engine.FinalizeAndAssemble(miner.chain, work.header, work.state, &body, work.receipts, work.fhevmSession)
 	if err != nil {
 		return &newPayloadResult{err: err}
 	}
@@ -213,10 +216,11 @@ func (miner *Miner) makeEnv(parent *types.Header, header *types.Header, coinbase
 	}
 	// Note the passed coinbase may be different with header.Coinbase.
 	return &environment{
-		signer:   types.MakeSigner(miner.chainConfig, header.Number, header.Time),
-		state:    state,
-		coinbase: coinbase,
-		header:   header,
+		signer:       types.MakeSigner(miner.chainConfig, header.Number, header.Time),
+		state:        state,
+		coinbase:     coinbase,
+		header:       header,
+		fhevmSession: vm.FhevmExecutor.CreateSession(header.Number.Int64()),
 	}, nil
 }
 
@@ -265,7 +269,7 @@ func (miner *Miner) applyTransaction(env *environment, tx *types.Transaction) (*
 		snap = env.state.Snapshot()
 		gp   = env.gasPool.Gas()
 	)
-	receipt, err := core.ApplyTransaction(miner.chainConfig, miner.chain, &env.coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, vm.Config{})
+	receipt, err := core.ApplyTransaction(miner.chainConfig, miner.chain, &env.coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, vm.Config{FhevmSession: env.fhevmSession})
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		env.gasPool.SetGas(gp)

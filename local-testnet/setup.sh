@@ -22,13 +22,13 @@ GETH=../build/bin/geth
 # build with 'go build ./cmd/bootnode' in root directory
 BOOTNODE=../bootnode
 
-ACL_CONTRACT_ADDRESS='0x168813841d158Ea8508f91f71aF338e4cB4d396e'
-COPROCESSOR_CONTRACT_ADDRESS='0x6819e3aDc437fAf9D533490eD3a7552493fCE3B1'
-COPROCESSOR_ACCOUNT_ADDRESS='0xc9990FEfE0c27D31D0C2aa36196b085c0c4d456c'
+EXECUTOR_CONTRACT_ADDRESS='0x168813841d158Ea8508f91f71aF338e4cB4d396e'
+ACL_CONTRACT_ADDRESS='0x6819e3aDc437fAf9D533490eD3a7552493fCE3B1'
 
 ps aux | grep geth | grep -v grep | awk '{print $2}' | xargs kill
 ps aux | grep prysm-beacon | grep -v grep | awk '{print $2}' | xargs kill
 ps aux | grep prysm-validator | grep -v grep | awk '{print $2}' | xargs kill
+ps aux | grep executor | grep -v grep | awk '{print $2}' | xargs kill
 ps aux | grep bootnode | grep '\-nodekey' | grep -v grep | grep -v tmux | awk '{print $2}' | xargs kill
 rm -rf node*
 
@@ -50,17 +50,23 @@ cp -r prep/consensus node-rpc1/
 
 STATE_SCHEME='--state.scheme=hash'
 
-$GETH init $STATE_SCHEME --datadir node-val1 prep/execution/genesis.out.json
-$GETH init $STATE_SCHEME --datadir node-rpc1 prep/execution/genesis.out.json
+EXECUTOR_ADDR="127.0.0.1:51001"
+FHEVM_NATIVE_PARAMS="FHEVM_EXECUTOR_URL=$EXECUTOR_ADDR FHEVM_CONTRACT_ADDRESS=$EXECUTOR_CONTRACT_ADDRESS ACL_CONTRACT_ADDRESS=$ACL_CONTRACT_ADDRESS"
+/bin/sh -c "$FHEVM_NATIVE_PARAMS $GETH init $STATE_SCHEME --datadir node-val1 prep/execution/genesis.out.json"
+/bin/sh -c "$FHEVM_NATIVE_PARAMS $GETH init $STATE_SCHEME --datadir node-rpc1 prep/execution/genesis.out.json"
 
 cp prep/boot.key ./boot.key
 
 # $BOOTNODE -genkey boot.key
-tmux new -s bootnode -d "$BOOTNODE -nodekey boot.key -addr :30305"
+tmux new -s bootnode -d "$FHEVM_NATIVE_PARAMS $BOOTNODE -nodekey boot.key -addr :30305"
 
 # start the validator nodes
 NODE_DIR=node-val1
-tmux new -s exec-val1 -d "echo '' | FORCE_TRANSIENT_STORAGE=true $GETH $STATE_SCHEME --datadir $NODE_DIR --port 30306 \
+EXECUTOR_ADDR="127.0.0.1:51001"
+FHEVM_NATIVE_PARAMS="FHEVM_EXECUTOR_URL=$EXECUTOR_ADDR FHEVM_CONTRACT_ADDRESS=$EXECUTOR_CONTRACT_ADDRESS ACL_CONTRACT_ADDRESS=$ACL_CONTRACT_ADDRESS"
+tmux new -s comp-val1 -d "executor --fhe-keys-directory=./fhevm-keys --server-addr $EXECUTOR_ADDR 2>&1 | tee $NODE_DIR/comp.log"
+tmux new -s exec-val1 -d "echo '' | $FHEVM_NATIVE_PARAMS FORCE_TRANSIENT_STORAGE=true \
+	$GETH $STATE_SCHEME --datadir $NODE_DIR --port 30306 \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
 	--networkid 12345 --unlock 0x1181A1FB7B6de97d4CB06Da82a0037DF1FFe32D0 \
 	--authrpc.port 8551 --mine --miner.etherbase 0x1181A1FB7B6de97d4CB06Da82a0037DF1FFe32D0 2>&1 | tee $NODE_DIR/exec.log"
@@ -103,10 +109,12 @@ tmux new -s val-val1 -d "./prysm-validator --datadir=$NODE_DIR/consensus/validat
 	2>&1 | tee $NODE_DIR/validator.log"
 
 NODE_DIR=node-rpc1
-RPC_PARAMS="FORCE_TRANSIENT_STORAGE=true FHEVM_COPROCESSOR_API_KEY=a1503fb6-d79b-4e9e-826d-44cf262f3e05 FHEVM_COPROCESSOR_URL=127.0.0.1:50051 FHEVM_CIPHERTEXTS_DB=$NODE_DIR/fhevm_ciphertexts.sqlite FHEVM_CONTRACT_ADDRESS=$COPROCESSOR_CONTRACT_ADDRESS"
+EXECUTOR_ADDR="127.0.0.1:51002"
+FHEVM_NATIVE_PARAMS="FHEVM_EXECUTOR_URL=$EXECUTOR_ADDR FHEVM_CONTRACT_ADDRESS=$EXECUTOR_CONTRACT_ADDRESS ACL_CONTRACT_ADDRESS=$ACL_CONTRACT_ADDRESS"
+tmux new -s comp-rpc1 -d "executor --fhe-keys-directory=./fhevm-keys --server-addr $EXECUTOR_ADDR 2>&1 | tee $NODE_DIR/comp.log"
 
 # rpc node
-tmux new -s exec-rpc1 -d "$RPC_PARAMS $GETH $STATE_SCHEME --datadir $NODE_DIR --port 30308 --http --http.port 8745 \
+tmux new -s exec-rpc1 -d "FORCE_TRANSIENT_STORAGE=true $FHEVM_NATIVE_PARAMS $GETH $STATE_SCHEME --datadir $NODE_DIR --port 30308 --http --http.port 8745 \
 	--gcmode archive --vmdebug --http.corsdomain='*' --http.api \"eth,net,web3,debug\" \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
 	--authrpc.port 8553 2>&1 | tee $NODE_DIR/exec.log"

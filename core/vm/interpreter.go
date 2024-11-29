@@ -26,7 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/holiman/uint256"
-	"github.com/zama-ai/fhevm-go-coproc/fhevm"
+	"github.com/zama-ai/fhevm-go-native/fhevm"
 )
 
 // Config are the configuration options for the Interpreter
@@ -35,6 +35,7 @@ type Config struct {
 	NoBaseFee               bool  // Forces the EIP-1559 baseFee to 0 (needed for 0 price calls)
 	EnablePreimageRecording bool  // Enables recording of SHA3/keccak preimages
 	ExtraEips               []int // Additional EIPS that are to be enabled
+	FhevmSession            fhevm.ExecutorSession
 }
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
@@ -216,23 +217,22 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		}()
 	}
 
-	var coprocSegmentId fhevm.SegmentId
-	useCoprocessor := !readOnly && in.evm.CoprocessorSession != nil
-	isValidCoprocessorSegment := false
-	if useCoprocessor {
-		coprocSegmentId = in.evm.CoprocessorSession.NextSegment()
+	var executorSegmentId fhevm.SegmentId
+	isValidExecutorSegment := false
+	if in.evm.ExecutorSession != nil {
+		executorSegmentId = in.evm.ExecutorSession.NextSegment()
 		defer func() {
-			if isValidCoprocessorSegment {
-				if input != nil && res != nil && contract.Address() == in.evm.CoprocessorSession.ContractAddress() {
-					log.Info("Executing coprocessor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
-					randCounterValue := in.evm.StateDB.GetState(in.evm.CoprocessorSession.ContractAddress(), randCounterLocation)
+			if isValidExecutorSegment {
+				if input != nil && res != nil && contract.Address() == in.evm.ExecutorSession.ContractAddress() {
+					log.Info("Executing executor payload", "input", common.Bytes2Hex(input), "output", common.Bytes2Hex(res))
+					randCounterValue := in.evm.StateDB.GetState(in.evm.ExecutorSession.ContractAddress(), randCounterLocation)
 
 					// Compute the FHE rand seed as packed encoding of:
 					// keccak256(randCounter || aclContractAddress || block.chainid || blockhash(block.number - 1)) || block.timestamp)
 					// This means we want the counter, the chain ID, the block hash and the timestamp to be 32 bytes. The ACL address is 20 bytes.
 					hasher := crypto.NewKeccakState()
 					hasher.Write(randCounterValue[:])
-					hasher.Write(in.evm.CoprocessorSession.AclContractAddress().Bytes())
+					hasher.Write(in.evm.ExecutorSession.AclContractAddress().Bytes())
 					var chainId [32]byte
 					in.evm.chainConfig.ChainID.FillBytes(chainId[:])
 					hasher.Write(chainId[:])
@@ -250,13 +250,13 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 					hasher.Read(seed[:])
 
 					ed := fhevm.ExtraData{FheRandSeed: seed}
-					coprocErr := in.evm.CoprocessorSession.Execute(input, ed, res)
+					coprocErr := in.evm.ExecutorSession.Execute(input, ed, res)
 					if coprocErr != nil {
 						log.Error("Error executing coprocessor payload", "error", coprocErr)
 					}
 				}
 			} else {
-				_ = in.evm.CoprocessorSession.InvalidateSinceSegment(coprocSegmentId)
+				_ = in.evm.ExecutorSession.InvalidateSinceSegment(executorSegmentId)
 			}
 		}()
 	}
@@ -350,9 +350,9 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		err = nil // clear stop token error
 	}
 
-	if useCoprocessor && err == nil {
+	if err == nil {
 		// only if this point is reached and there is no error process coprocessor payload in defer block
-		isValidCoprocessorSegment = true
+		isValidExecutorSegment = true
 	}
 
 	return res, err

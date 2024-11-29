@@ -27,7 +27,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
-	"github.com/zama-ai/fhevm-go-coproc/fhevm"
+	"github.com/zama-ai/fhevm-go-native/fhevm"
 )
 
 type (
@@ -125,17 +125,17 @@ type EVM struct {
 	// callGasTemp holds the gas available for the current call. This is needed because the
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
-	callGasTemp        uint64
-	CoprocessorSession fhevm.CoprocessorSession
+	callGasTemp     uint64
+	ExecutorSession fhevm.ExecutorSession
 }
 
-var FhevmCoprocessor fhevm.CoprocessorApi
+var FhevmExecutor fhevm.ExecutorApi
 
 // hacky, and this is for demo, but we need a lot of refactorings
 // of NewEVM method otherwise
 func init() {
 	var err error
-	FhevmCoprocessor, err = fhevm.InitCoprocessor()
+	FhevmExecutor, err = fhevm.InitExecutor()
 	if err != nil {
 		panic(err)
 	}
@@ -156,13 +156,13 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 		}
 	}
 	evm := &EVM{
-		Context:            blockCtx,
-		TxContext:          txCtx,
-		StateDB:            statedb,
-		Config:             config,
-		chainConfig:        chainConfig,
-		chainRules:         chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
-		CoprocessorSession: nil,
+		Context:         blockCtx,
+		TxContext:       txCtx,
+		StateDB:         statedb,
+		Config:          config,
+		chainConfig:     chainConfig,
+		chainRules:      chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
+		ExecutorSession: config.FhevmSession,
 	}
 	evm.interpreter = NewEVMInterpreter(evm)
 	return evm

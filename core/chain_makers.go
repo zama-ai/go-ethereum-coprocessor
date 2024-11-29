@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/gballet/go-verkle"
 	"github.com/holiman/uint256"
+	"github.com/zama-ai/fhevm-go-native/fhevm"
 )
 
 // BlockGen creates blocks for testing.
@@ -51,7 +52,8 @@ type BlockGen struct {
 	uncles      []*types.Header
 	withdrawals []*types.Withdrawal
 
-	engine consensus.Engine
+	fhevmSession fhevm.ExecutorSession
+	engine       consensus.Engine
 }
 
 // SetCoinbase sets the coinbase of the generated block.
@@ -137,7 +139,7 @@ func (b *BlockGen) addTx(bc *BlockChain, vmConfig vm.Config, tx *types.Transacti
 // instruction will panic during execution if it attempts to access a block number outside
 // of the range created by GenerateChain.
 func (b *BlockGen) AddTx(tx *types.Transaction) {
-	b.addTx(nil, vm.Config{}, tx)
+	b.addTx(nil, vm.Config{FhevmSession: b.fhevmSession}, tx)
 }
 
 // AddTxWithChain adds a transaction to the generated block. If no coinbase has
@@ -148,7 +150,7 @@ func (b *BlockGen) AddTx(tx *types.Transaction) {
 // the content of transactions that can be added. If contract code relies on the BLOCKHASH
 // instruction, the block in chain will be returned.
 func (b *BlockGen) AddTxWithChain(bc *BlockChain, tx *types.Transaction) {
-	b.addTx(bc, vm.Config{}, tx)
+	b.addTx(bc, vm.Config{FhevmSession: b.fhevmSession}, tx)
 }
 
 // AddTxWithVMConfig adds a transaction to the generated block. If no coinbase has
@@ -316,6 +318,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	genblock := func(i int, parent *types.Block, triedb *triedb.Database, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, cm: cm, parent: parent, statedb: statedb, engine: engine}
 		b.header = cm.makeHeader(parent, statedb, b.engine)
+		b.fhevmSession = vm.FhevmExecutor.CreateSession(b.Number().Int64())
 
 		// Set the difficulty for clique block. The chain maker doesn't have access
 		// to a chain, so the difficulty will be left unset (nil). Set it here to the
@@ -347,7 +350,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		}
 
 		body := types.Body{Transactions: b.txs, Uncles: b.uncles, Withdrawals: b.withdrawals}
-		block, err := b.engine.FinalizeAndAssemble(cm, b.header, statedb, &body, b.receipts)
+		block, err := b.engine.FinalizeAndAssemble(cm, b.header, statedb, &body, b.receipts, b.fhevmSession)
 		if err != nil {
 			panic(err)
 		}
@@ -430,6 +433,7 @@ func GenerateVerkleChain(config *params.ChainConfig, parent *types.Block, engine
 	genblock := func(i int, parent *types.Block, triedb *triedb.Database, statedb *state.StateDB) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, cm: cm, parent: parent, statedb: statedb, engine: engine}
 		b.header = cm.makeHeader(parent, statedb, b.engine)
+		b.fhevmSession = vm.FhevmExecutor.CreateSession(b.header.Number.Int64())
 
 		// TODO uncomment when proof generation is merged
 		// Save pre state for proof generation
@@ -453,7 +457,7 @@ func GenerateVerkleChain(config *params.ChainConfig, parent *types.Block, engine
 			Uncles:       b.uncles,
 			Withdrawals:  b.withdrawals,
 		}
-		block, err := b.engine.FinalizeAndAssemble(cm, b.header, statedb, body, b.receipts)
+		block, err := b.engine.FinalizeAndAssemble(cm, b.header, statedb, body, b.receipts, b.fhevmSession)
 		if err != nil {
 			panic(err)
 		}
