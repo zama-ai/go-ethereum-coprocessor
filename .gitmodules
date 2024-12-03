@@ -6,9 +6,6 @@
 	path = tests/evm-benchmarks
 	url = https://github.com/ipsilon/evm-benchmarks
 	shallow = true
-[submodule "fhevm-go-coproc"]
-	path = fhevm-go-coproc
-	url = git@github.com:zama-ai/fhevm-go-coproc.git
 [submodule "libs/fhevm-backend"]
 	path = libs/fhevm-backend
 	url = https://github.com/zama-ai/fhevm-backend.git
