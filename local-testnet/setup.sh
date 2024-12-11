@@ -114,10 +114,12 @@ FHEVM_NATIVE_PARAMS="FHEVM_EXECUTOR_URL=$EXECUTOR_ADDR FHEVM_CONTRACT_ADDRESS=$E
 tmux new -s comp-rpc1 -d "executor --fhe-keys-directory=./fhevm-keys --server-addr $EXECUTOR_ADDR 2>&1 | tee $NODE_DIR/comp.log"
 
 # rpc node
-tmux new -s exec-rpc1 -d "FORCE_TRANSIENT_STORAGE=true $FHEVM_NATIVE_PARAMS $GETH $STATE_SCHEME --datadir $NODE_DIR --port 30308 --http --http.port 8745 \
+THE_COMMAND="FORCE_TRANSIENT_STORAGE=true $FHEVM_NATIVE_PARAMS $GETH $STATE_SCHEME --datadir $NODE_DIR --port 30308 --http --http.port 8745 \
 	--gcmode archive --vmdebug --http.corsdomain='*' --http.api \"eth,net,web3,debug\" \
 	--bootnodes 'enode://0b7b41ca480f0ef4e1b9fa7323c3ece8ed42cb161eef5bf580c737fe2f33787de25a0c212c0ac7fdb429216baa3342c9b5493bd03122527ffb4c8c114d87f0a6@127.0.0.1:0?discport=30305' \
 	--authrpc.port 8553 2>&1 | tee $NODE_DIR/exec.log"
+echo "rpc node command |$THE_COMMAND|"
+tmux new -s exec-rpc1 -d "$THE_COMMAND"
 
 tmux new -s beac-rpc1 -d "./prysm-beacon --datadir=$NODE_DIR/consensus/beacondata \
 	--peer=/ip4/127.0.0.1/tcp/13000/p2p/16Uiu2HAmVLcAYZGTyHjgGReWL28tsqnPz8FExJZgjMvGcvToXfWH \

@@ -459,6 +459,16 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, genesis *Genesis
 		rawdb.WriteChainConfig(db, genesisHash, chainConfig)
 	}
 
+	state, err := bc.State()
+	if err != nil {
+		return nil, err
+	}
+	// Load ciphertexts to be computed into the cache
+	err = vm.FhevmExecutor.PreloadCiphertexts(bc.CurrentBlock().Number.Int64(), state)
+	if err != nil {
+		return nil, err
+	}
+
 	// Start tx indexer if it's enabled.
 	if txLookupLimit != nil {
 		bc.txIndexer = newTxIndexer(*txLookupLimit, bc)
