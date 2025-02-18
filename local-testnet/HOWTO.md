@@ -5,7 +5,7 @@
     1. This command will among other steps generate fhe keys in fhevm-keys
 
 > [!NOTE]
-> Be careful fhevm-go-copro expects fhe keys in FHEVM_GO_KEYS_DIR env variable, if this is already set globally it could potentially overwrite the env variable given to rpc node. 
+> Be careful! fhevm-go-copro expects FHE keys in the FHEVM_GO_KEYS_DIR environment variable. If this variable is already set globally, it could potentially overwrite the environment variable provided to the RPC node. 
 3. Check you have 4 tmux sessions
  ```bash
 tmux ls
@@ -20,7 +20,7 @@ val2: 1 windows (created Thu Apr 25 15:07:05 2024)
  tmux a -t rpc1
  ```
 
-5. Open **Metamask** and import a new account with the following pricate key:
+5. Open **Metamask** and import a new account with the following private key:
  `d4251c2bca983ae6d2e19e728ec7fd8b80002cde2ee5c21f3f243fad82852386`
 
 
