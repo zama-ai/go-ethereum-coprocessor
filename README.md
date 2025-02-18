@@ -20,6 +20,12 @@ Check [here](./local-testnet/HOWTO.md)
 
 ## Building the source
 
+Before building, make sure all Git submodules are initialized. This repository includes submodules (e.g. `libs/fhevm-backend`) that are required for the build. Run the following command from the repository root:
+
+```shell
+git submodule update --init --recursive
+```
+
 For prerequisites and detailed build instructions please read the [Installation Instructions](https://geth.ethereum.org/docs/getting-started/installing-geth).
 
 Building `geth` requires both a Go (version 1.21 or later) and a C compiler. You can install
