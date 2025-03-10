@@ -18,6 +18,7 @@ package vm
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -110,17 +111,21 @@ func newPragueInstructionSet() JumpTable {
 
 func newCancunInstructionSet() JumpTable {
 	instructionSet := newShanghaiInstructionSet()
-	enable4844(&instructionSet) // EIP-4844 (BLOBHASH opcode)
-	enable7516(&instructionSet) // EIP-7516 (BLOBBASEFEE opcode)
-	enable1153(&instructionSet) // EIP-1153 "Transient Storage"
-	enable5656(&instructionSet) // EIP-5656 (MCOPY opcode)
-	enable6780(&instructionSet) // EIP-6780 SELFDESTRUCT only in same transaction
+	if !forceTransientStorage {
+		enable4844(&instructionSet) // EIP-4844 (BLOBHASH opcode)
+		enable7516(&instructionSet) // EIP-7516 (BLOBBASEFEE opcode)
+		enable1153(&instructionSet) // EIP-1153 "Transient Storage"
+		enable5656(&instructionSet) // EIP-5656 (MCOPY opcode)
+		enable6780(&instructionSet) // EIP-6780 SELFDESTRUCT only in same transaction
+	}
 	return validate(instructionSet)
 }
 
 func newShanghaiInstructionSet() JumpTable {
 	instructionSet := newMergeInstructionSet()
-	enable3855(&instructionSet) // PUSH0 instruction
+	if !forceTransientStorage {
+		enable3855(&instructionSet) // PUSH0 instruction
+	}
 	enable3860(&instructionSet) // Limit and meter initcode
 
 	return validate(instructionSet)
@@ -137,12 +142,24 @@ func newMergeInstructionSet() JumpTable {
 	return validate(instructionSet)
 }
 
+// make deployment to sepolia easy, if we don't have this flag
+// we don't perform hacks with altering instruction set
+var forceTransientStorage bool = os.Getenv("FORCE_TRANSIENT_STORAGE") != ""
+
 // newLondonInstructionSet returns the frontier, homestead, byzantium,
 // constantinople, istanbul, petersburg, berlin and london instructions.
 func newLondonInstructionSet() JumpTable {
 	instructionSet := newBerlinInstructionSet()
 	enable3529(&instructionSet) // EIP-3529: Reduction in refunds https://eips.ethereum.org/EIPS/eip-3529
 	enable3198(&instructionSet) // Base fee opcode https://eips.ethereum.org/EIPS/eip-3198
+	if forceTransientStorage {
+		enable3855(&instructionSet) // PUSH0 instruction
+		enable1153(&instructionSet) // EIP-1153 "Transient Storage"
+		enable5656(&instructionSet) // EIP-5656 (MCOPY opcode)
+		enable4844(&instructionSet) // EIP-4844 (BLOBHASH opcode)
+		enable7516(&instructionSet) // EIP-7516 (BLOBBASEFEE opcode)
+		enable6780(&instructionSet) // EIP-6780 SELFDESTRUCT only in same transaction
+	}
 	return validate(instructionSet)
 }
 

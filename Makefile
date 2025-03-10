@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: geth all test lint fmt clean devtools help
+.PHONY: geth all test lint fmt clean devtools help fhevm-go-coproc
 
 GOBIN = ./build/bin
 GO ?= latest

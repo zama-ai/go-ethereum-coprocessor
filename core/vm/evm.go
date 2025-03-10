@@ -28,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/zama-ai/fhevm-go-coproc/fhevm"
 )
 
 type (
@@ -117,14 +118,28 @@ type EVM struct {
 	// callGasTemp holds the gas available for the current call. This is needed because the
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
-	callGasTemp uint64
+	callGasTemp        uint64
 
-	// precompiles holds the precompiled contracts for the current epoch
+		// precompiles holds the precompiled contracts for the current epoch
 	precompiles map[common.Address]PrecompiledContract
 
 	// jumpDests is the aggregated result of JUMPDEST analysis made through
 	// the life cycle of EVM.
 	jumpDests map[common.Hash]bitvec
+	
+	CoprocessorSession fhevm.CoprocessorSession
+}
+
+var FhevmCoprocessor fhevm.CoprocessorApi
+
+// hacky, and this is for demo, but we need a lot of refactorings
+// of NewEVM method otherwise
+func init() {
+	var err error
+	FhevmCoprocessor, err = fhevm.InitCoprocessor()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // NewEVM constructs an EVM instance with the supplied block context, state
@@ -133,12 +148,13 @@ type EVM struct {
 // needed by calling evm.SetTxContext.
 func NewEVM(blockCtx BlockContext, statedb StateDB, chainConfig *params.ChainConfig, config Config) *EVM {
 	evm := &EVM{
-		Context:     blockCtx,
-		StateDB:     statedb,
-		Config:      config,
-		chainConfig: chainConfig,
-		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
-		jumpDests:   make(map[common.Hash]bitvec),
+		Context:            blockCtx,
+		StateDB:            statedb,
+		Config:             config,
+		chainConfig:        chainConfig,
+		chainRules:         chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
+	  jumpDests:   make(map[common.Hash]bitvec),
+		CoprocessorSession: nil,
 	}
 	evm.precompiles = activePrecompiledContracts(evm.chainRules)
 	evm.interpreter = NewEVMInterpreter(evm)

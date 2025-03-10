@@ -1,0 +1,48 @@
+
+version: "3.9"
+services:
+  beacon_chain_1:
+    image: "gcr.io/prysmaticlabs/prysm/beacon-chain:v4.1.1"
+    network_mode: host
+    command:
+      - --datadir=/data/consensus/beacondata
+      # No peers to sync with in this testnet, so setting to 0
+      - --min-sync-peers=0
+      - --genesis-state=/data/consensus/genesis.ssz
+      - --bootstrap-node=
+      - --interop-eth1data-votes
+      # The chain configuration file used for setting up Prysm
+      - --chain-config-file=/data/consensus/config.yml
+      # We specify the chain id used by our execution client
+      - --contract-deployment-block=0
+      - --chain-id=12345
+      - --rpc-host=0.0.0.0
+      - --grpc-gateway-host=0.0.0.0
+      - --jwt-secret=/data/geth/jwtsecret
+      - --execution-endpoint=http://127.0.0.1:8551
+      - --accept-terms-of-use
+      - --suggested-fee-recipient=0x123463a4b065722e99115d6c222f267d9cabb524
+      - --minimum-peers-per-subnet=0
+      - --enable-debug-rpc-endpoints
+      - --force-clear-db
+    volumes:
+      - ./node1/:/data/
+
+  # We run a validator client with 64, deterministically-generated keys that match
+  # The validator keys present in the beacon chain genesis state generated a few steps above.
+  validator:
+    image: "gcr.io/prysmaticlabs/prysm/validator:v4.1.1"
+    network_mode: host
+    command:
+      - --beacon-rpc-provider=127.0.0.1:4000
+      - --datadir=/data/consensus/validatordata
+      - --accept-terms-of-use
+      - --interop-num-validators=64
+      - --interop-start-index=0
+      - --chain-config-file=/data/consensus/config.yml
+      - --force-clear-db
+    depends_on:
+      beacon_chain_1:
+        condition: service_started
+    volumes:
+      - ./node1/:/data/

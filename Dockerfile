@@ -1,33 +1,30 @@
-# Support setting various labels on the final image
-ARG COMMIT=""
-ARG VERSION=""
-ARG BUILDNUM=""
-
 # Build Geth in a stock Go builder container
 FROM golang:1.24-alpine AS builder
 
-RUN apk add --no-cache gcc musl-dev linux-headers git
+# Install dependencies
+RUN apk update &&\
+    apk add --no-cache \
+    gcc musl-dev linux-headers git git-lfs
 
-# Get dependencies - will also be cached if we won't change go.mod/go.sum
-COPY go.mod /go-ethereum/
-COPY go.sum /go-ethereum/
-RUN cd /go-ethereum && go mod download
+WORKDIR /go-ethereum
 
-ADD . /go-ethereum
-RUN cd /go-ethereum && go run build/ci.go install -static ./cmd/geth
+# Copy codebase and build Geth
+COPY . .
+RUN go run build/ci.go install -static ./cmd/geth
 
-# Pull Geth into a second stage deploy alpine container
-FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates
-COPY --from=builder /go-ethereum/build/bin/geth /usr/local/bin/
+# Final Stage
+FROM alpine:3.20.3
 
+# Install ca-certificates
+RUN apk update &&\
+    apk add --no-cache ca-certificates
+
+# Copy the Geth binary from the builder stage
+COPY --from=build /go-ethereum/build/bin/geth /usr/local/bin/
+
+# Expose required ports
 EXPOSE 8545 8546 30303 30303/udp
+
+# Set entrypoint
 ENTRYPOINT ["geth"]
-
-# Add some metadata labels to help programmatic image consumption
-ARG COMMIT=""
-ARG VERSION=""
-ARG BUILDNUM=""
-
-LABEL commit="$COMMIT" version="$VERSION" buildnum="$BUILDNUM"
