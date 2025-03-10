@@ -1,5 +1,5 @@
 # Build Geth in a stock Go builder container
-FROM golang:1.22-alpine3.20 AS build
+FROM golang:1.24-alpine AS builder
 
 # Install dependencies
 RUN apk update &&\

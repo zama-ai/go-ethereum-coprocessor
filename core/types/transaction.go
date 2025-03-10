@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
@@ -49,6 +48,7 @@ const (
 	AccessListTxType = 0x01
 	DynamicFeeTxType = 0x02
 	BlobTxType       = 0x03
+	SetCodeTxType    = 0x04
 )
 
 // Transaction is an Ethereum transaction.
@@ -206,6 +206,8 @@ func (tx *Transaction) decodeTyped(b []byte) (TxData, error) {
 		inner = new(DynamicFeeTx)
 	case BlobTxType:
 		inner = new(BlobTx)
+	case SetCodeTxType:
+		inner = new(SetCodeTx)
 	default:
 		return nil, ErrTxTypeNotSupported
 	}
@@ -355,10 +357,16 @@ func (tx *Transaction) EffectiveGasTip(baseFee *big.Int) (*big.Int, error) {
 	}
 	var err error
 	gasFeeCap := tx.GasFeeCap()
-	if gasFeeCap.Cmp(baseFee) == -1 {
+	if gasFeeCap.Cmp(baseFee) < 0 {
 		err = ErrGasFeeCapTooLow
 	}
-	return math.BigMin(tx.GasTipCap(), gasFeeCap.Sub(gasFeeCap, baseFee)), err
+	gasFeeCap = gasFeeCap.Sub(gasFeeCap, baseFee)
+
+	gasTipCap := tx.GasTipCap()
+	if gasTipCap.Cmp(gasFeeCap) < 0 {
+		return gasTipCap, err
+	}
+	return gasFeeCap, err
 }
 
 // EffectiveGasTipValue is identical to EffectiveGasTip, but does not return an
@@ -466,6 +474,38 @@ func (tx *Transaction) WithBlobTxSidecar(sideCar *BlobTxSidecar) *Transaction {
 	return cpy
 }
 
+// SetCodeAuthorizations returns the authorizations list of the transaction.
+func (tx *Transaction) SetCodeAuthorizations() []SetCodeAuthorization {
+	setcodetx, ok := tx.inner.(*SetCodeTx)
+	if !ok {
+		return nil
+	}
+	return setcodetx.AuthList
+}
+
+// SetCodeAuthorities returns a list of unique authorities from the
+// authorization list.
+func (tx *Transaction) SetCodeAuthorities() []common.Address {
+	setcodetx, ok := tx.inner.(*SetCodeTx)
+	if !ok {
+		return nil
+	}
+	var (
+		marks = make(map[common.Address]bool)
+		auths = make([]common.Address, 0, len(setcodetx.AuthList))
+	)
+	for _, auth := range setcodetx.AuthList {
+		if addr, err := auth.Authority(); err == nil {
+			if marks[addr] {
+				continue
+			}
+			marks[addr] = true
+			auths = append(auths, addr)
+		}
+	}
+	return auths
+}
+
 // SetTime sets the decoding time of a transaction. This is used by tests to set
 // arbitrary times and by persistent transaction pools when loading old txs from
 // disk.
@@ -556,11 +596,11 @@ func (s Transactions) EncodeIndex(i int, w *bytes.Buffer) {
 	}
 }
 
-// TxDifference returns a new set which is the difference between a and b.
+// TxDifference returns a new set of transactions that are present in a but not in b.
 func TxDifference(a, b Transactions) Transactions {
 	keep := make(Transactions, 0, len(a))
 
-	remove := make(map[common.Hash]struct{})
+	remove := make(map[common.Hash]struct{}, b.Len())
 	for _, tx := range b {
 		remove[tx.Hash()] = struct{}{}
 	}
@@ -574,7 +614,7 @@ func TxDifference(a, b Transactions) Transactions {
 	return keep
 }
 
-// HashDifference returns a new set which is the difference between a and b.
+// HashDifference returns a new set of hashes that are present in a but not in b.
 func HashDifference(a, b []common.Hash) []common.Hash {
 	keep := make([]common.Hash, 0, len(a))
 
