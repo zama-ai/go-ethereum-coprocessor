@@ -33,7 +33,6 @@ RUN apk update &&\
 RUN mkdir -p /val-data /rpc-data /usr/share/devnet-resources /val-data/consensus/beacondata
 
 # Copy built binaries and scripts from build
-COPY --from=build /go-ethereum/bootnode /usr/bin/
 COPY --from=build /go-ethereum/build/bin/geth /usr/bin/
 COPY --from=build /usr/bin/prysm-beacon /usr/bin/prysm-validator /usr/bin/prysm-ctl /usr/bin/
 
