@@ -19,7 +19,7 @@ WORKDIR /go-ethereum
 
 # Copy and build the Geth source code
 COPY . .
-RUN go build ./cmd/bootnode && make geth
+RUN go run build/ci.go install -static ./cmd/geth
 
 # Set up final image
 FROM alpine:3.20.3
